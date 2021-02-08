@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>WebGL Demo</title>
+    <link rel="stylesheet" href="webgl.css" type="text/css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
+      integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
+      crossorigin="anonymous" defer>
+    </script>
+    <script src="webgl-demo.js" defer></script>
+  </head>
+
+  <body>
+    <canvas id="glcanvas" width="640" height="480"></canvas>
+	
+	<p> Please open the console to see the file output! </p>
+	
+	<br>
+	
+	<p> Buttom example: </p>
+	<button type="button" onclick="loadFileFunction()">Load a file!</button>
+	<button type="button" onclick="showAnErrorFunction()">Show an error!</button>
+	
+	<br>
+	<br>
+	
+	<label for="name">File name:</label>
+    <input type="text" id="filename" required size="20" value="hello_world.txt">
+	<button type="button" onclick="downloadFileFunction()">Download a file with this name!</button>
+	
+	<br>
+	<br>
+	
+	<p> Slider example with rotation on both Z and X axis: </p>
+	<input id="sliderAmount" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider(this.value)">
+  </body>
+</html>
