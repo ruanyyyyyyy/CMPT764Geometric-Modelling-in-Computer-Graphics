@@ -1,5 +1,6 @@
 "use strict";
 
+var shadedtype = 0;
 var cubeRotation = 0.0;
 
 function updateSlider(slideAmount) {
@@ -15,6 +16,7 @@ var canvas;
 var gl;
 
 var numPositions = 36;
+var index = 0;
 
 var positionsArray = [];
 var normalsArray = [];
@@ -75,6 +77,7 @@ function quad(a, b, c, d) {
      normalsArray.push(normal);
      positionsArray.push(vertices[d]);
      normalsArray.push(normal);
+     index += 6;
 }
 
 
@@ -154,6 +157,11 @@ window.onload = function init() {
 
     gl.uniformMatrix4fv( gl.getUniformLocation(program, "uProjectionMatrix"),
        false, flatten(projectionMatrix));
+   
+    document.getElementById("flatshaded").onclick = function(){shadedtype=0;};
+    document.getElementById("wireframe").onclick = function(){shadedtype=1;};
+    document.getElementById("meshedgeshaded").onclick = function(){shadedtype=2;};
+
     render();
 }
 
@@ -173,8 +181,17 @@ var render = function(){
     gl.uniformMatrix4fv(gl.getUniformLocation(program,
             "uModelViewMatrix"), false, flatten(modelViewMatrix));
 
-    gl.drawArrays(gl.TRIANGLES, 0, numPositions);
 
+    if(shadedtype==0){
+       gl.drawArrays(gl.TRIANGLES, 0, numPositions);
+    }
+    if(shadedtype==1){
+       for( var i=0; i<index; i+=3) gl.drawArrays(gl.LINE_LOOP, i, 3);
+    }
+    if(shadedtype==2){
+      gl.drawArrays(gl.TRIANGLES, 0, numPositions);
+      for( var i=0; i<index; i+=3) gl.drawArrays(gl.LINE_LOOP, i, 3);
+    }
 
     requestAnimationFrame(render);
 }
