@@ -161,7 +161,7 @@ var render = function(){
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    theta[axis] = cubeRotation; //+=
+    theta[axis] = cubeRotation; 
 
     modelViewMatrix = mat4();
     modelViewMatrix = mult(modelViewMatrix, rotate(theta[xAxis], vec3(1, 0, 0)));
@@ -176,7 +176,7 @@ var render = function(){
     gl.drawArrays(gl.TRIANGLES, 0, numPositions);
 
 
-    //requestAnimationFrame(render);
+    requestAnimationFrame(render);
 }
 
 }
