@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html>
 
-<button id = "ButtonX">Rotate X</button>
-<button id = "ButtonY">Rotate Y</button>
-<button id = "ButtonZ">Rotate Z</button>
-
-
-<!-- <script id="vertex-shader" type="x-shader/x-vertex">
-
-</script> -->
-
-<!-- <script id="fragment-shader" type="x-shader/x-fragment">
-
-</script> -->
-
 <script type="text/javascript" src="../Common/initShaders2.js"></script>
 <script type="text/javascript" src="../Common/MVnew.js"></script>
 <script type="text/javascript" src="../Common/utility.js"></script>
@@ -26,8 +13,18 @@
 Oops ... your browser doesn't support the HTML5 canvas element
 </canvas>
 
-<p> Slider example with rotation on both Z and X axis: </p>
-    <input id="sliderAmount" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider(this.value)">
+<br />
+<br />
+<button type="button" onclick="loadFileFunction()">Load a file!</button>
+<button type="button" onclick="showAnErrorFunction()">Show an error!</button>
+
+<br>
+<br>
+
+<label for="name">File name:</label>
+  <input type="text" id="filename" required size="20" value="hello_world.txt">
+<button type="button" onclick="downloadFileFunction()">Download a file with this name!</button>
+
 
 <br>
 <br>
@@ -36,15 +33,19 @@ Oops ... your browser doesn't support the HTML5 canvas element
 <button type="button" onclick="wireCube()">wireframe</button>
 <button id = "meshedgeshaded"> shaded with mesh edges displayed</button>
 
-<!-- <br />
-<select id="colorMenu" >
-  <option value="flatshaded">flatshaded</option>
-  <option value="wireframe">wireframe</option>
-  <option value="green">green</option>
-  <option value="yellow">yellow</option>
-  <option value="cyan">cyan</option>
-  <option value="magenta">magenta</option>
-</select> -->
+<p> Slider to control rotation, translation and zooming: </p>
+    <input id="sliderAmount" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider(this.value)">
+
+<br>
+<button id = "ButtonX">Rotate X</button>
+<button id = "ButtonY">Rotate Y</button>
+<button id = "ButtonZ">Rotate Z</button>
+<br>
+<br>
+<button id = "ButtonZ">Translate X</button>
+<button id = "ButtonZ">Translate Y</button>
+<button id = "ButtonZ">Translate Z</button>
+<button id = "ButtonZ">Zooming</button>
     
 </body>
 </html>
