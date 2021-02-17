@@ -37,13 +37,38 @@ var mvLoc, projLoc;
 var program;
 var canvas
 
+
+// TrianglesToWireframe 
+// Inputs:
+//    vertices: array of vertices ready to draw with WebGL as
+//              primitive type TRIANGLES
+// Outputs:
+//    returns an array of vertices that outline each triangle
+//    when drawn as primitive type LINES 
+function TrianglesToWireframe(vertices)
+{
+	//Declare a return array
+	var res = []
+	//loop index i from [0 to vertices length), counting by 3s
+	for (var i = 0; i <= vertices.length-3; i+=2)
+	{
+		res.push(vertices[i]);//add vertex at index i to return array
+		res.push(vertices[i+1]);
+		res.push(vertices[i+1]);//add two copies of vertex at index i + 1 to return array
+		res.push(vertices[i+2]);
+		res.push(vertices[i+2]);//add two copies of vertex at index i + 2 to return array
+		res.push(vertices[i]);//add vertex at index i to return array
+	}
+	return res;//return the return array
+}
+
 //----------------------------------------------------------------------------
 // Initialization Event Function
 //----------------------------------------------------------------------------
 window.onload = function init() {
 	// Set up a WebGL Rendering Context in an HTML5 Canvas
 	canvas = document.getElementById("gl-canvas");
-	gl = WebGLUtils.setupWebGL(canvas);
+	gl = canvas.getContext("webgl2"); // basic webGL2 context
 	if (!gl) {
 		alert("WebGL isn't available");
 	}
@@ -104,7 +129,7 @@ window.onload = function init() {
 
 	obj1 = loadObj(gl, "CS315.obj");
 
-	requestAnimFrame(render);
+	render();
 };
 
 //----------------------------------------------------------------------------
@@ -278,15 +303,15 @@ function render() {
 	if (obj1.loaded) {
 		var objTrans = mult(mv, translate(0,1,0));
 		objTrans = mult(objTrans,scale(2,2,2));
-		gl.uniformMatrix4fv(program.mv, gl.FALSE, objTrans);
+		gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
 
 		//Draw solid OBJ
 		bindBuffersToShader(obj1);
 		gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
 
 		//Draw wire OBJ
-		//bindWireBuffersToShader(obj1);
-		//gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+		bindWireBuffersToShader(obj1);
+		gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
 
 	}
 
@@ -317,7 +342,7 @@ function render() {
 	
 	time += 0.01;
 
-	gl.uniformMatrix4fv(program.mv, gl.FALSE, mv);
+	gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
 	gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
 
 	//Wires and points will have solid colour, like a uniform	
@@ -334,7 +359,7 @@ function render() {
 	gl.enableVertexAttribArray( program.vColor );
 
 
-	requestAnimFrame(render);
+	requestAnimationFrame(render);
 }
 
 
