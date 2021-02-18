@@ -22,6 +22,7 @@ var obj1; // obj from uploaded file
 //Data Buffers
 var points = [];
 var colors = [];
+var normals = [];
 var mesh = {};
 
 var vertexBuffer, colorBuffer;
@@ -39,13 +40,40 @@ var program;
 var canvas
 
 var cubeRotation = 0.0;
-var flag = false;
-var responsetext;
+var cubeTranslation = 0.0;
+var cubeZoom = 1.0;
 
-function updateSlider(slideAmount) {
+var flag = false;
+var flag_mode = 4;
+var responsetext;
+var vertices = [
+    vec4(-0.5, -0.5,  0.5, 1.0),
+    vec4(-0.5,  0.5,  0.5, 1.0),
+    vec4(0.5,  0.5,  0.5, 1.0),
+    vec4(0.5, -0.5,  0.5, 1.0),
+    vec4(-0.5, -0.5, -0.5, 1.0),
+    vec4(-0.5,  0.5, -0.5, 1.0),
+    vec4(0.5,  0.5, -0.5, 1.0),
+    vec4(0.5, -0.5, -0.5, 1.0)
+];
+
+
+function updateSlider_R(slideAmount) {
 	var sliderDiv = document.getElementById("sliderAmount");
-	cubeRotation += parseFloat(slideAmount);
-	console.log(cubeRotation);
+    cubeRotation += parseFloat(slideAmount);
+    console.log(cubeRotation);
+}
+
+function updateSlider_T(slideAmount) {
+    var sliderDiv = document.getElementById("sliderAmount_trans");
+    cubeTranslation = parseFloat(slideAmount)
+    console.log(cubeTranslation);	
+}
+
+function updateSlider_Z(slideAmount) {
+    var sliderDiv = document.getElementById("sliderAmount_zoom");
+    cubeZoom = parseFloat(slideAmount)
+    console.log(cubeZoom);	
 }
 
 // Array of Objects curently loading
@@ -265,6 +293,37 @@ function downloadFileFunction(){
     // Start file download.
     downloadFile(file, responsetext);
 }
+function quad(a, b, c, d) {
+
+    var t1 = subtract(vertices[b], vertices[a]);
+    var t2 = subtract(vertices[c], vertices[b]);
+    var normal = cross(t1, t2);
+    normal = vec3(normal);
+
+    points.push(vertices[a]);
+    normals.push(normal);
+    points.push(vertices[b]);
+    normals.push(normal);
+    points.push(vertices[c]);
+    normals.push(normal);
+    points.push(vertices[a]);
+    normals.push(normal);
+    points.push(vertices[c]);
+    normals.push(normal);
+    points.push(vertices[d]);
+    normals.push(normal);
+}
+
+
+function colorCube()
+{
+   quad(1, 0, 3, 2);
+   quad(2, 3, 7, 6);
+   quad(3, 0, 4, 7);
+   quad(6, 5, 1, 2);
+   quad(4, 5, 6, 7);
+   quad(5, 4, 0, 1);
+}
 
 //----------------------------------------------------------------------------
 // Initialization Event Function
@@ -290,15 +349,10 @@ window.onload = function init() {
 	program = initShaders(gl, "vertex-shader", "fragment-shader");
 	gl.useProgram(program);
 
-	// Set up data to draw
-	mesh.points = {};
-	mesh.points.Start = points.length;
-	generatePoints(c,r,0);
-	mesh.points.Vertices = points.length - mesh.points.Start;
-
+	// Set up data to drw
 	mesh.tris = {};
 	mesh.tris.Start = points.length;
-	generateTriangles(c,r);
+	colorCube();
 	mesh.tris.Vertices = points.length - mesh.tris.Start;
 
 	mesh.wires= {};
@@ -338,31 +392,20 @@ window.onload = function init() {
 	//walking monster
 	//obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/walking_monster.obj');
 	//horse simple
-    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
+    //obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
+    //cube
+    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/MaikKlein/0b6d6bb58772c13593d0a0add6004c1c/raw/48cf9c6d1cdd43cc6862d7d34a68114e2b93d497/cube.obj');
     
     document.getElementById("ButtonT").onclick = function(){flag = !flag;};
+    document.getElementById("ButtonFlat").onclick = function(){flag_mode = 1;};
+    document.getElementById("ButtonSmooth").onclick = function(){flag_mode = 2;};
+    document.getElementById("ButtonWire").onclick = function(){flag_mode = 3;};
+    document.getElementById("ButtonBoth").onclick = function(){flag_mode = 4;};
 
 	render();
 };
 
-//----------------------------------------------------------------------------
-// Generates a 1D array full of points for a 2D grid
-// width and height are the integer number of columns and rows in the 2D grid
-// x and z are set to match width and height indices
-//----------------------------------------------------------------------------
-function generatePoints(width, height) 
-{
-	
-	var count = 0;
-	for (var j = 0; j <= height; j++)
-	{
-		for (var i = 0; i <= width; i++)
-		{
-			points[count] = (vec4(i/width,0,j/height,1));
-			count++;
-		}
-	}
-}	
+
 
 //----------------------------------------------------------------------------
 // Calculates y values and colours for vertices based on x and z values (indices)
@@ -377,55 +420,6 @@ function updateHeightsAndColors(time)
 	}
 }
 
-//----------------------------------------------------------------------------
-// Generates Wire Strip from grid points
-// Requires that a widthxheight grid already be present as the first
-// set of data in points array.
-//----------------------------------------------------------------------------
-function generateWireStrip(width, height) {
-	for (var j = 0; j < height; j++)
-	{
-		//Line across top of row
-		for (var i = width; i > 0; i--)
-		{
-			points.push(points[i+j*(width+1)]);
-		}
-
-		//Zig-zag back
-		for (var i = 0; i <= width; i++)
-		{
-			points.push(points[i+j*(width+1)]); //one on current row
-			points.push(points[i+(j+1)*(width+1)]); //one on next row
-		}
-	}
-
-	//Last line across bottom
-	for (var i = width; i >= 0; i--)
-	{
-		points.push(points[i+height*(width+1)]);
-	}
-}
-
-//----------------------------------------------------------------------------
-// Generates Triangles from grid points
-// Requires that a widthxheight grid already be present as the first
-// set of data in points array.
-//----------------------------------------------------------------------------
-function generateTriangles(width, height) {
-	for (var j = 0; j < height; j++)
-	{
-		for (var i = 0; i < width; i++)
-		{
-			points.push(points[i+(j)*(width+1)]);
-			points.push(points[i+(j+1)*(width+1)]);
-			points.push(points[i+1+(j)*(width+1)]);
-
-			points.push(points[i+1+(j)*(width+1)]);
-			points.push(points[i+(j+1)*(width+1)]);
-			points.push(points[i+1+(j+1)*(width+1)]);
-		}
-	}
-}
 
 function bindBuffersToShader(obj) {
 	//Bind vertexObject - the vertex buffer for the OBJ - to position attribute
@@ -516,21 +510,36 @@ function render() {
     if (flag) {
         if (obj1.loaded) {
             var objTrans = mult(mv, translate(0,1,0));
-            // objTrans = mult(objTrans,scale(2,2,2));
-            objTrans = mult(objTrans,scale(20,20,20));
-            objTrans = mult(objTrans, rotateX(-100) );
-            objTrans = mult(objTrans, rotateY(0) );
-            objTrans = mult(objTrans, rotateZ(30) );
+            objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
+            objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
+            objTrans = mult(objTrans, rotateX(cubeRotation));
+            objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
+            
             gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
-    
-            //Draw solid OBJ
-            bindBuffersToShader(obj1);
-            gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
-    
-            //Draw wire OBJ
-            bindWireBuffersToShader(obj1);
-            gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
-    
+            
+            switch(flag_mode) {
+                case 1:
+                  //Draw solid OBJ
+                  bindBuffersToShader(obj1);
+                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                  break;
+                case 2:
+                  //Draw solid OBJ
+                  bindBuffersToShader(obj1);
+                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                  break;
+                case 3:
+                    //Draw wire OBJ
+                    bindWireBuffersToShader(obj1);
+                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    break;
+                case 4:
+                    bindBuffersToShader(obj1);
+                    gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                    bindWireBuffersToShader(obj1);
+                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    break;
+              }
         }
     }
     
@@ -573,7 +582,6 @@ function render() {
         gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
 
         gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
-        gl.drawArrays(gl.POINTS, mesh.points.Start, mesh.points.Vertices);
 
         //Renable the vertex attrib array to permit per-vertex colour array to work again
         gl.enableVertexAttribArray( program.vColor );
