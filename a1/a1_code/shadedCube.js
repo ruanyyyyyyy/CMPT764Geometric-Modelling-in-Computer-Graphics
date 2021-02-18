@@ -9,24 +9,21 @@ function updateSlider(slideAmount) {
 	console.log(cubeRotation);
 }
 
-// function setupEventListeners()
-// {
-//   //Request an HTML element
-//   var m = document.getElementById("colorMenu");
-
-//   //Setup a listener - notice we are defining a function from inside a function
-//   //The textbook recommends onclick, but I find that onchange works better
-//   m.addEventListener("change", function(event) {
-//        //acquire the menu entry number
-//        var index = m.selectedIndex;
-
-//        //learn the value of the selected option. This need not match the text...
-//        var colorName = m.options[index].value;
-
-//        //change the object color by looking up the value in our associate array
-//        objectColor = colors[colorName];
-//     });
-// }
+//Function demonstrating how to load a sample file from the internet.
+function loadFileFunction(){
+	
+	var client = new XMLHttpRequest();
+		//load an obj model from an online source, such as GitHub or Professor Richard's website.
+		//To change the file being opened, just change the link below.
+		//You can't open files locally due to safety constraints.
+		client.open('GET', 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
+    
+    client.onreadystatechange = function() {
+		  //This is how you can output a variable value or constant string to the console.
+		  console.log(client.responseText);
+		}
+		client.send();
+}
 
 
 var flatCube = function() {
@@ -485,13 +482,15 @@ var wireCube = function() {
    
        colorCube();
    
-       var nBuffer = gl.createBuffer();
-       gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
-       gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
+      //  var nBuffer = gl.createBuffer();
+      //  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+      //  gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
    
        var normalLoc = gl.getAttribLocation(program, "aNormal");
-       gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, 0, 0);
-       gl.enableVertexAttribArray(normalLoc);
+       //gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, 0, 0);
+       //gl.enableVertexAttribArray(normalLoc);
+       gl.disableVertexAttribArray(normalLoc);
+		 gl.vertexAttrib4f(program.aNormal, 0.8, 0.8, 0.8, 1.0); // specify normal as necessary
    
        var vBuffer = gl.createBuffer();
        gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
@@ -500,6 +499,9 @@ var wireCube = function() {
        var positionLoc = gl.getAttribLocation(program, "aPosition");
        gl.vertexAttribPointer(positionLoc, 4, gl.FLOAT, false, 0, 0);
        gl.enableVertexAttribArray(positionLoc);
+
+       gl.disableVertexAttribArray(program.vColor);
+		 gl.vertexAttrib4f(program.vColor, 0.8, 0.8, 0.8, 1.0); // specify colour as necessary
    
        thetaLoc = gl.getUniformLocation(program, "theta");
    

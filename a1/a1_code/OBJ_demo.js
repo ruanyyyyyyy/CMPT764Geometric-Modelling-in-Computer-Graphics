@@ -45,22 +45,22 @@ var canvas
 // Outputs:
 //    returns an array of vertices that outline each triangle
 //    when drawn as primitive type LINES 
-function TrianglesToWireframe(vertices)
-{
-	//Declare a return array
-	var res = []
-	//loop index i from [0 to vertices length), counting by 3s
-	for (var i = 0; i <= vertices.length-3; i+=2)
-	{
-		res.push(vertices[i]);//add vertex at index i to return array
-		res.push(vertices[i+1]);
-		res.push(vertices[i+1]);//add two copies of vertex at index i + 1 to return array
-		res.push(vertices[i+2]);
-		res.push(vertices[i+2]);//add two copies of vertex at index i + 2 to return array
-		res.push(vertices[i]);//add vertex at index i to return array
-	}
-	return res;//return the return array
-}
+// function TrianglesToWireframe(vertices)
+// {
+// 	//Declare a return array
+// 	var res = []
+// 	//loop index i from [0 to vertices length), counting by 3s
+// 	for (var i = 0; i <= vertices.length-3; i+=2)
+// 	{
+// 		res.push(vertices[i]);//add vertex at index i to return array
+// 		res.push(vertices[i+1]);
+// 		res.push(vertices[i+1]);//add two copies of vertex at index i + 1 to return array
+// 		res.push(vertices[i+2]);
+// 		res.push(vertices[i+2]);//add two copies of vertex at index i + 2 to return array
+// 		res.push(vertices[i]);//add vertex at index i to return array
+// 	}
+// 	return res;//return the return array
+// }
 
 //----------------------------------------------------------------------------
 // Initialization Event Function
@@ -127,7 +127,14 @@ window.onload = function init() {
 	program.p = gl.getUniformLocation(program, "p");
 	program.mv = gl.getUniformLocation(program, "mv");
 
-	obj1 = loadObj(gl, "CS315.obj");
+	//obj1 = loadObj(gl, "CS315.obj");
+	//obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/goodhand.obj')
+	//venus
+	//obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
+	//walking monster
+	//obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/walking_monster.obj');
+	//horse simple
+	obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
 
 	render();
 };
@@ -303,6 +310,10 @@ function render() {
 	if (obj1.loaded) {
 		var objTrans = mult(mv, translate(0,1,0));
 		objTrans = mult(objTrans,scale(2,2,2));
+		// objTrans = mult(objTrans,scale(20,20,20));
+		// objTrans = mult(objTrans, rotateX(-100) );
+		// objTrans = mult(objTrans, rotateY(0) );
+		// objTrans = mult(objTrans, rotateZ(30) );
 		gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
 
 		//Draw solid OBJ
@@ -316,47 +327,47 @@ function render() {
 	}
 
 	//Rebind buffers for procedural mesh
-	gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-	gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-	gl.enableVertexAttribArray( program.vPosition );
-	gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-	gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-	gl.enableVertexAttribArray( program.vColor );
+	// gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
+	// gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
+	// gl.enableVertexAttribArray( program.vPosition );
+	// gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
+	// gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
+	// gl.enableVertexAttribArray( program.vColor );
 
 	
-	mv = mult(mv, rotate(roty,vec3(0,1,0)));
-	roty+= 0.5;
-	mv = mult(mv, translate(-3, 0, -3));
-	mv = mult(mv, scale(6, 6, 6));
+	//mv = mult(mv, rotate(roty,vec3(0,1,0)));
+	//roty+= 0.5;
+	//mv = mult(mv, translate(-3, 0, -3));
+	//mv = mult(mv, scale(6, 6, 6));
 
 
 	//Animate the mesh and copy the updated data to gl buffers
-	updateHeightsAndColors(time);
-	gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-	gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(points) );
-	gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-	gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(colors) );
+	// updateHeightsAndColors(time);
+	// gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
+	// gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(points) );
+	// gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
+	// gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(colors) );
 	
 	//Or update time in the shader so it can animate the vertex stream
 	//gl.uniform1f(program.time, time);
 	
-	time += 0.01;
+	//time += 0.01;
 
-	gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
-	gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
+	//gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
+	//gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
 
 	//Wires and points will have solid colour, like a uniform	
 	//Disabling a vertex attribute array allows it to take on a fixed value, a bit like a uniform
-	gl.disableVertexAttribArray( program.vColor );
+	//gl.disableVertexAttribArray( program.vColor );
 
 	//Set a disabled attribute like this
-	gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
+	//gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
 
-	gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
-	gl.drawArrays(gl.POINTS, mesh.points.Start, mesh.points.Vertices);
+	// gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
+	// gl.drawArrays(gl.POINTS, mesh.points.Start, mesh.points.Vertices);
 
 	//Renable the vertex attrib array to permit per-vertex colour array to work again
-	gl.enableVertexAttribArray( program.vColor );
+	//gl.enableVertexAttribArray( program.vColor );
 
 
 	requestAnimationFrame(render);
