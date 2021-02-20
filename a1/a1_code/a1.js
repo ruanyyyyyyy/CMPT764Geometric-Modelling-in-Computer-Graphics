@@ -18,6 +18,8 @@
 // This variable will store the WebGL rendering context
 var gl;
 var obj1; // obj from uploaded file
+var obj2;
+var obj3;
 
 //Data Buffers
 var points = [];
@@ -44,6 +46,8 @@ var cubeTranslation = 0.0;
 var cubeZoom = 1.0;
 
 var flag = false;
+var flagHand = false;
+var flagHorse = false;
 var flag_mode = 4;
 var responsetext;
 var vertices = [
@@ -61,20 +65,58 @@ var vertices = [
 function updateSlider_R(slideAmount) {
 	var sliderDiv = document.getElementById("sliderAmount");
     cubeRotation += parseFloat(slideAmount);
-    console.log(cubeRotation);
+    //console.log(cubeRotation);
 }
 
 function updateSlider_T(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_trans");
     cubeTranslation = parseFloat(slideAmount)
-    console.log(cubeTranslation);	
+    //console.log(cubeTranslation);	
 }
 
 function updateSlider_Z(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_zoom");
     cubeZoom = parseFloat(slideAmount)
-    console.log(cubeZoom);	
+    //console.log(cubeZoom);	
 }
+
+//----------------------------------------------------------------------------
+// makeFlatNormals(triangles, start, num, normals)
+// Caculates Flat Normals for Triangles
+// Input parameters:
+//  - triangles: an array of 4 component points that represent TRIANGLES
+//  - start: the index of the first TRIANGLES vertex
+//  - num: the number of vertices, as if you were drawing the TRIANGLES
+// Output parameters:
+//  - normals: an array of vec3's that will represent normals to be used with 
+//             triangles
+// Preconditions:
+//  - the data in triangles should specify triangles in counterclockwise
+//    order to indicate their fronts
+//  - num must be divisible by 3
+//  - triangles and normals must have the types indicated above
+// Postconditions:
+//  - the normals array will contain unit length vectors from start, 
+//    to (start + num)
+//----------------------------------------------------------------------------
+// function makeFlatNormals(triangles, start, num, normals) {
+//     if (num % 3 != 0) {
+//         console.log("Warning: number of vertices is not a multiple of 3");
+//         return;
+//     }
+//     for (var i = start; i < start + num; i += 3) {
+//         var p0 = vec3(triangles[i][0], triangles[i][1], triangles[i][2]);
+//         var p1 = vec3(triangles[i + 1][0], triangles[i + 1][1], triangles[i + 1][2]);
+//         var p2 = vec3(triangles[i + 2][0], triangles[i + 2][1], triangles[i + 2][2]);
+//         var v1 = normalize(vec3(subtract(p1, p0))); //Vector on triangle edge one
+//         var v2 = normalize(vec3(subtract(p2, p1))); //Vector on triangle edge two
+
+//         var n = normalize(cross(v1, v2));
+//         normals[i + 0] = vec3(n);
+//         normals[i + 1] = vec3(n);
+//         normals[i + 2] = vec3(n);
+//     }
+// }
 
 // Array of Objects curently loading
 var g_loadingObjects = [];
@@ -123,14 +165,20 @@ function processLoadObj(req) {
 function doLoadObj(obj, text) {
     vertexArray = [];
     normalArray = [];
+
     textureArray = [];
     indexArray = [];
 
     var vertex = [];
     var normal = [];
+    var flat_normals = [];
+    var smooth_normals = [];
     var texture = [];
     var facemap = {};
     var index = 0;
+
+    var Triangles = []; // array of triangles
+    var Points = []; //array of points
 
     // This is a map which associates a range of indices with a name
     // The name comes from the 'g' tag (of the form "g NAME"). Indices
@@ -161,6 +209,7 @@ function doLoadObj(obj, text) {
             vertex.push(parseFloat(array[1]));
             vertex.push(parseFloat(array[2]));
             vertex.push(parseFloat(array[3]));
+            Points.push(vec3(parseFloat(array[1]), parseFloat(array[2]), parseFloat(array[3])));
         }
         else if (array[0] == "vt") {
             // normal
@@ -179,6 +228,23 @@ function doLoadObj(obj, text) {
                 log("*** Error: face '" + line + "' not handled");
                 continue;
             }
+            // calc fnormal
+            // var vtx1 = array[1][0]-1;
+            // var vtx2 = array[2][0]-1;
+            // var vtx3 = array[3][0]-1;
+            // console.log(array[1][0], array[2][0], array[3][0]);
+            
+            // var a = vec3(vertex[vtx1 * 3], vertex[vtx1 * 3 + 1],vertex[vtx1 * 3 + 2]);
+            // var b = vec3(vertex[vtx2 * 3], vertex[vtx2 * 3 + 1],vertex[vtx2 * 3 + 2]);
+            // var c = vec3(vertex[vtx3 * 3], vertex[vtx3 * 3 + 1],vertex[vtx3 * 3 + 2]);
+            
+            // var edge1 = subtract(b, a);
+            // var edge2 = subtract(c, b);
+            // var fnormal = cross(edge1, edge2);
+            // fnormal = vec3(fnormal);
+            // fnormal = flatten(fnormal);
+            // console.log("normal");
+            // console.log(fnormal); //TODO:
 
             for (var i = 1; i < 4; ++i) {
                 if (!(array[i] in facemap)) {
@@ -237,14 +303,37 @@ function doLoadObj(obj, text) {
                     normalArray.push(y);
                     normalArray.push(z);
 
-                    facemap[array[i]] = index++;
+                    facemap[array[i]] = index++; // set an index to each vertex
                 }
 
-                indexArray.push(facemap[array[i]]);
+                indexArray.push(facemap[array[i]]); // every three indices give a triangle
                 currentGroup[1]++;
             }
         }
     }
+    //console.log(vertexArray.length); 72
+    //console.log(indexArray); 36
+    //console.log(vertex); // 24 = 8 * 3
+    //console.log(facemap)
+    // console.log(normalArray) // 72
+    // console.log(normal_exist);
+    //calc flat normals
+    //makeFlatNormals(triangles, start, num, normalArray);
+    // var triangles = vertexArray;
+    // var start = 0;
+    // var num = vertexArray.length/3;
+    // for (var i = start; i < start + num; i += 3) {
+    //     var p0 = vec3(triangles[i*3], triangles[i*3+1], triangles[i*3+2]);
+    //     var p1 = vec3(triangles[(i + 1)*3], triangles[(i + 1)*3+1], triangles[(i + 1)*3+2]);
+    //     var p2 = vec3(triangles[(i + 2)*3], triangles[(i + 2)*3+1], triangles[(i + 2)*3+2]);
+    //     var v1 = normalize(vec3(subtract(p1, p0))); //Vector on triangle edge one
+    //     var v2 = normalize(vec3(subtract(p2, p1))); //Vector on triangle edge two
+
+    //     var n = normalize(cross(v1, v2));
+    //     normalArray[i + 0] = vec3(n);
+    //     normalArray[i + 1] = vec3(n);
+    //     normalArray[i + 2] = vec3(n);
+    
 
     // set the VBOs
     obj.normalObject = obj.ctx.createBuffer();
@@ -385,18 +474,17 @@ window.onload = function init() {
 	program.p = gl.getUniformLocation(program, "p");
 	program.mv = gl.getUniformLocation(program, "mv");
 
-	//obj1 = loadObj(gl, "CS315.obj");
-	//obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/goodhand.obj')
-	//venus
-	//obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
-	//walking monster
-	//obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/walking_monster.obj');
-	//horse simple
-    //obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
     //cube
     obj1 = loadObj(gl, 'https://gist.githubusercontent.com/MaikKlein/0b6d6bb58772c13593d0a0add6004c1c/raw/48cf9c6d1cdd43cc6862d7d34a68114e2b93d497/cube.obj');
+    obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
+    // //horse simple
+    obj3 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
     
-    document.getElementById("ButtonT").onclick = function(){flag = !flag;};
+    
+    document.getElementById("ButtonT").onclick = function(){flag = true; flagHand=false; flagHorse=false;};
+    document.getElementById("ButtonHand").onclick = function(){flagHand = true; flag = false; flagHorse=false;};
+    document.getElementById("ButtonHorse").onclick = function(){flagHorse = true; falg = false; flagHand=false};
+
     document.getElementById("ButtonFlat").onclick = function(){flag_mode = 1;};
     document.getElementById("ButtonSmooth").onclick = function(){flag_mode = 2;};
     document.getElementById("ButtonWire").onclick = function(){flag_mode = 3;};
@@ -427,7 +515,7 @@ function bindBuffersToShader(obj) {
 	gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
 	gl.enableVertexAttribArray(program.vPosition);
   
-	//repeat for normalObject (3 floats) and textureObject (2 floats)
+	//repeat for normalObject (3 floats) and textureObject (2 floats) TODO:
 	//if they exist and your shader supports them. 
   
 	//j3di.js ignores materials - surface colors - so we'll set a basic one here
@@ -542,50 +630,128 @@ function render() {
               }
         }
     }
-    
-    if (!flag) {
-        //Rebind buffers for procedural mesh
-        gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-        gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-        gl.enableVertexAttribArray( program.vPosition );
-        gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-        gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-        gl.enableVertexAttribArray( program.vColor );
 
-        
-        mv = mult(mv, rotate(roty,vec3(0,1,0)));
-        roty+= 0.5;
-        mv = mult(mv, translate(-3, 0, -3));
-        mv = mult(mv, scale(6, 6, 6));
-
-
-        //Animate the mesh and copy the updated data to gl buffers
-        updateHeightsAndColors(time);
-        gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-        gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(points) );
-        gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-        gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(colors) );
-        
-        //Or update time in the shader so it can animate the vertex stream
-        gl.uniform1f(program.time, time);
-        
-        time += 0.01;
-
-        gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
-        gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
-
-        //Wires and points will have solid colour, like a uniform	
-        //Disabling a vertex attribute array allows it to take on a fixed value, a bit like a uniform
-        gl.disableVertexAttribArray( program.vColor );
-
-        //Set a disabled attribute like this
-        gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
-
-        gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
-
-        //Renable the vertex attrib array to permit per-vertex colour array to work again
-        gl.enableVertexAttribArray( program.vColor );
+    if (flagHand) {
+        if (obj2.loaded) {
+            var objTrans = mult(mv, translate(0,1,0));
+            objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
+            objTrans = mult(objTrans,scale(0.05, 0.05, 0.05));
+            objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
+            objTrans = mult(objTrans, rotateY(30));
+            objTrans = mult(objTrans, rotateX(-60));
+            objTrans = mult(objTrans, rotateZ(-60*0.7));
+            objTrans = mult(objTrans, rotateX(cubeRotation));
+            objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
+            
+            gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
+            
+            switch(flag_mode) {
+                case 1:
+                  //Draw solid OBJ
+                  bindBuffersToShader(obj2);
+                  //gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                 //TODO:
+                  gl.drawArrays(gl.TRIANGLES, obj2.vertexArray.length, gl.UNSIGNED_SHORT, 0)
+                  break;
+                case 2:
+                  //Draw solid OBJ
+                  bindBuffersToShader(obj2);
+                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                  break;
+                case 3:
+                    //Draw wire OBJ
+                    bindWireBuffersToShader(obj2);
+                    gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    break;
+                case 4:
+                    bindBuffersToShader(obj2);
+                    gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                    bindWireBuffersToShader(obj2);
+                    gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    break;
+              }
+        }
     }
+
+    if (flagHorse) {
+        if (obj3.loaded) {
+            var objTrans = mult(mv, translate(0,1,0));
+            objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
+            objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
+            objTrans = mult(objTrans, rotateX(cubeRotation));
+            objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
+            
+            gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
+            
+            switch(flag_mode) {
+                case 1:
+                  //Draw solid OBJ
+                  bindBuffersToShader(obj3);
+                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  break;
+                case 2:
+                  //Draw solid OBJ
+                  bindBuffersToShader(obj3);
+                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  break;
+                case 3:
+                    //Draw wire OBJ
+                    bindWireBuffersToShader(obj3);
+                    gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    break;
+                case 4:
+                    bindBuffersToShader(obj3);
+                    gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                    bindWireBuffersToShader(obj3);
+                    gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    break;
+              }
+        }
+    }
+    
+    // if (!flag && !flagHand && !flagHorse) {
+    //     //Rebind buffers for procedural mesh
+    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
+    //     gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
+    //     gl.enableVertexAttribArray( program.vPosition );
+    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
+    //     gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
+    //     gl.enableVertexAttribArray( program.vColor );
+
+        
+    //     mv = mult(mv, rotate(roty,vec3(0,1,0)));
+    //     roty+= 0.5;
+    //     mv = mult(mv, translate(-3, 0, -3));
+    //     mv = mult(mv, scale(6, 6, 6));
+
+
+    //     //Animate the mesh and copy the updated data to gl buffers
+    //     updateHeightsAndColors(time);
+    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
+    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(points) );
+    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
+    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(colors) );
+        
+    //     //Or update time in the shader so it can animate the vertex stream
+    //     gl.uniform1f(program.time, time);
+        
+    //     time += 0.01;
+
+    //     gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
+    //     gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
+
+    //     //Wires and points will have solid colour, like a uniform	
+    //     //Disabling a vertex attribute array allows it to take on a fixed value, a bit like a uniform
+    //     gl.disableVertexAttribArray( program.vColor );
+
+    //     //Set a disabled attribute like this
+    //     gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
+
+    //     gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
+
+    //     //Renable the vertex attrib array to permit per-vertex colour array to work again
+    //     gl.enableVertexAttribArray( program.vColor );
+    // }
 
 	
 	requestAnimationFrame(render);
