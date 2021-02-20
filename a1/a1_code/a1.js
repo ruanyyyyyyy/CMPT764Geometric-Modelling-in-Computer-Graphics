@@ -80,43 +80,68 @@ function updateSlider_Z(slideAmount) {
     //console.log(cubeZoom);	
 }
 
-//----------------------------------------------------------------------------
-// makeFlatNormals(triangles, start, num, normals)
-// Caculates Flat Normals for Triangles
-// Input parameters:
-//  - triangles: an array of 4 component points that represent TRIANGLES
-//  - start: the index of the first TRIANGLES vertex
-//  - num: the number of vertices, as if you were drawing the TRIANGLES
-// Output parameters:
-//  - normals: an array of vec3's that will represent normals to be used with 
-//             triangles
-// Preconditions:
-//  - the data in triangles should specify triangles in counterclockwise
-//    order to indicate their fronts
-//  - num must be divisible by 3
-//  - triangles and normals must have the types indicated above
-// Postconditions:
-//  - the normals array will contain unit length vectors from start, 
-//    to (start + num)
-//----------------------------------------------------------------------------
-// function makeFlatNormals(triangles, start, num, normals) {
-//     if (num % 3 != 0) {
-//         console.log("Warning: number of vertices is not a multiple of 3");
-//         return;
-//     }
-//     for (var i = start; i < start + num; i += 3) {
-//         var p0 = vec3(triangles[i][0], triangles[i][1], triangles[i][2]);
-//         var p1 = vec3(triangles[i + 1][0], triangles[i + 1][1], triangles[i + 1][2]);
-//         var p2 = vec3(triangles[i + 2][0], triangles[i + 2][1], triangles[i + 2][2]);
-//         var v1 = normalize(vec3(subtract(p1, p0))); //Vector on triangle edge one
-//         var v2 = normalize(vec3(subtract(p2, p1))); //Vector on triangle edge two
+/**
+ * An object that contains a set of points 
+ * @constructor
+ */
+function PointsData()
+{
+    // 3d coordinates
+    var self = this;
+    self.coords= []; // a Float32Array; 3 components per vertex (x,y,z)
+    self.edges = [];
+} 
 
-//         var n = normalize(cross(v1, v2));
-//         normals[i + 0] = vec3(n);
-//         normals[i + 1] = vec3(n);
-//         normals[i + 2] = vec3(n);
-//     }
-// }
+/**
+ * An object that contains a set of lines and their colors, suitable for
+ * rendering using gl.LINES mode.
+ * @constructor
+ */
+function LinesData() {
+    var self = this;
+    self.vertices = [];   // a Float32Array; 3 components per vertex (x,y,z)
+    self.colors = [];   // a Float32Array; 3 components per vertex RGB
+    self.textures = [];   // a Float32Array; 1 component per vertex
+    self.material = null; // a Material object
+}
+function EdgesData() {
+    var self = this;
+    self.origin = [];
+    self.destination = [];
+    self.leftFace = [];
+    self.rightFace = [];
+    self.leftcw = [];
+    self.leftccw = [];
+    self.rightcw = [];
+    self.rightccw = [];
+}
+
+
+
+/**
+ * A collection of triangles that can all be rendered using gl.TRIANGLES.
+ * @constructor
+ */
+function TrianglesData() {
+    var self = this;
+    self.vertices = [];       // a Float32Array; index of per vertex 
+    self.flat_normals = [];   // a Float32Array; 3 components per vertex <dx,dy,dz>
+    self.smooth_normals = []; // a Float32Array; 3 components per vertex <dx,dy,dz>
+}
+
+/**
+ * Definition of an object that stores arrays of data for one model. A model
+ * can contain points, lines, and triangles.
+ * @constructor
+ */
+function ModelArrays(name) {
+    var self = this;
+    self.name = name;     // The name of this model
+    self.points = null;   // a PointsData object, if the model contains points
+    self.lines = null;    // a LinesData object, if the model contains lines
+    self.triangles = null;// a TrianglesData object, it the model contains triangles
+}
+
 
 // Array of Objects curently loading
 var g_loadingObjects = [];
@@ -125,6 +150,7 @@ function log(msg) {
         window.console.log(msg);
     }
 }
+  
 
 //
 // loadObj
@@ -177,8 +203,11 @@ function doLoadObj(obj, text) {
     var facemap = {};
     var index = 0;
 
-    var Triangles = []; // array of triangles
-    var Points = []; //array of points
+    var triangles = []; // array of triangles
+    var points = []; //array of points
+
+    var wevMap = {};
+    var weeMap = {};
 
     // This is a map which associates a range of indices with a name
     // The name comes from the 'g' tag (of the form "g NAME"). Indices
@@ -209,7 +238,10 @@ function doLoadObj(obj, text) {
             vertex.push(parseFloat(array[1]));
             vertex.push(parseFloat(array[2]));
             vertex.push(parseFloat(array[3]));
-            Points.push(vec3(parseFloat(array[1]), parseFloat(array[2]), parseFloat(array[3])));
+            p = new PointsData();
+            p.coords = vec3(parseFloat(array[1]), parseFloat(array[2]), parseFloat(array[3]));
+            wevMap[points.length] = p;
+            points.push(p);
         }
         else if (array[0] == "vt") {
             // normal
@@ -228,25 +260,67 @@ function doLoadObj(obj, text) {
                 log("*** Error: face '" + line + "' not handled");
                 continue;
             }
-            // calc fnormal
-            // var vtx1 = array[1][0]-1;
-            // var vtx2 = array[2][0]-1;
-            // var vtx3 = array[3][0]-1;
-            // console.log(array[1][0], array[2][0], array[3][0]);
+            triangle = new TrianglesData();
+            p1 = parseInt(array[1]); // index of the point
+            p2 = parseInt(array[2]);
+            p3 = parseInt(array[3]);
+
+            triangle.vertices = vec3(p1, p2, p3);
+            triangles.push(triangle);
+            var e1 = [p1, p2];
+            var e1_r = [p2, p1];
+            var e2 = [p2, p3];
+            var e2_r = [p3, p2];
+            var e3 = [p3, p1];
+            var e3_r = [p1, p3];
             
-            // var a = vec3(vertex[vtx1 * 3], vertex[vtx1 * 3 + 1],vertex[vtx1 * 3 + 2]);
-            // var b = vec3(vertex[vtx2 * 3], vertex[vtx2 * 3 + 1],vertex[vtx2 * 3 + 2]);
-            // var c = vec3(vertex[vtx3 * 3], vertex[vtx3 * 3 + 1],vertex[vtx3 * 3 + 2]);
-            
-            // var edge1 = subtract(b, a);
-            // var edge2 = subtract(c, b);
-            // var fnormal = cross(edge1, edge2);
-            // fnormal = vec3(fnormal);
-            // fnormal = flatten(fnormal);
-            // console.log("normal");
-            // console.log(fnormal); //TODO:
+            if(!(e1 in weeMap) && !(e1_r in weeMap)) {
+                edge1 = new EdgesData();
+                edge1.origin = p1;
+                edge1.destination = p2;
+                edge1.leftFace = triangle; //override?
+                edge1.leftccw = e2;
+                edge1.leftcw = e3; // when search for matching edge, use e3 and e3_r
+                weeMap[e1] = edge1;
+            } else {
+                edge1 = weeMap[e1_r];
+                edge1.rightFace = triangle;
+                edge1.rightcw = e3;
+                edge1.rightccw = e2;
+            }
+
+            if(!(e2 in weeMap) && !(e2_r in weeMap)) {
+                edge2 = new EdgesData();
+                edge2.origin = p2;
+                edge2.destination = p3;
+                edge2.leftFace = triangle; //override?
+                edge2.leftccw = e3;
+                edge2.leftcw = e1; // when search for matching edge, use e3 and e3_r
+                weeMap[e2] = edge2;
+            } else {
+                edge2 = weeMap[e2_r];
+                edge2.rightFace = triangle;
+                edge2.rightcw = e1;
+                edge2.rightccw = e3;
+            }
+
+            if(!(e3 in weeMap) && !(e3_r in weeMap)) {
+                edge3 = new EdgesData();
+                edge3.origin = p3;
+                edge3.destination = p1;
+                edge3.leftFace = triangle; //override?
+                edge3.leftccw = e1;
+                edge3.leftcw = e2; // when search for matching edge, use e3 and e3_r
+                weeMap[e3] = edge3;
+            } else {
+                edge3 = weeMap[e3_r];
+                edge3.rightFace = triangle;
+                edge3.rightcw = e2;
+                edge3.rightccw = e1;
+            }
 
             for (var i = 1; i < 4; ++i) {
+                
                 if (!(array[i] in facemap)) {
                     // add a new entry to the map and arrays
                     var f = array[i].split("/");
@@ -311,28 +385,9 @@ function doLoadObj(obj, text) {
             }
         }
     }
-    //console.log(vertexArray.length); 72
-    //console.log(indexArray); 36
-    //console.log(vertex); // 24 = 8 * 3
-    //console.log(facemap)
-    // console.log(normalArray) // 72
-    // console.log(normal_exist);
-    //calc flat normals
-    //makeFlatNormals(triangles, start, num, normalArray);
-    // var triangles = vertexArray;
-    // var start = 0;
-    // var num = vertexArray.length/3;
-    // for (var i = start; i < start + num; i += 3) {
-    //     var p0 = vec3(triangles[i*3], triangles[i*3+1], triangles[i*3+2]);
-    //     var p1 = vec3(triangles[(i + 1)*3], triangles[(i + 1)*3+1], triangles[(i + 1)*3+2]);
-    //     var p2 = vec3(triangles[(i + 2)*3], triangles[(i + 2)*3+1], triangles[(i + 2)*3+2]);
-    //     var v1 = normalize(vec3(subtract(p1, p0))); //Vector on triangle edge one
-    //     var v2 = normalize(vec3(subtract(p2, p1))); //Vector on triangle edge two
 
-    //     var n = normalize(cross(v1, v2));
-    //     normalArray[i + 0] = vec3(n);
-    //     normalArray[i + 1] = vec3(n);
-    //     normalArray[i + 2] = vec3(n);
+    //console.log(points);
+    //console.log(triangles);
     
 
     // set the VBOs
