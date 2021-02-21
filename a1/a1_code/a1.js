@@ -90,6 +90,7 @@ function PointsData()
     var self = this;
     self.coords= []; // a Float32Array; 3 components per vertex (x,y,z)
     self.edges = [];
+    self.vertex_normals = vec3(0.0, 0.0, 0.0);
 } 
 
 // /**
@@ -126,7 +127,7 @@ function TrianglesData() {
     var self = this;
     self.vertices = [];       // a Float32Array; index of per vertex 
     self.flat_normals = [];   // a Float32Array; 3 components per vertex <dx,dy,dz>
-    self.smooth_normals = []; // a Float32Array; 3 components per vertex <dx,dy,dz>
+    //self.smooth_normals = []; // a Float32Array; 3 components per vertex <dx,dy,dz>
     self.edges = [];
 }
 
@@ -192,14 +193,15 @@ function processLoadObj(req) {
 function doLoadObj(obj, text) {
     vertexArray = [];
     normalArray = [];
+    avg_normalArray = [];
 
     textureArray = [];
     indexArray = [];
 
     var vertex = [];
     var normal = [];
-    var flat_normals = [];
-    var smooth_normals = [];
+    //var flat_normals = [];
+    //var smooth_normals = [];
     var texture = [];
     var facemap = {};
     var index = 0;
@@ -267,12 +269,20 @@ function doLoadObj(obj, text) {
             p3 = parseInt(array[3])-1;
 
             triangle.vertices = vec3(p1, p2, p3);
-            triangles.push(triangle);
+
             // calc Normal
             var selectEdge1 = subtract(wevMap[p1].coords, wevMap[p2].coords);
             var selectEdge2 = subtract(wevMap[p2].coords, wevMap[p3].coords);
             var face_normal = normalize(cross(selectEdge1, selectEdge2));
             face_normal = vec3(face_normal);
+            //add face_normal to each triangle
+            triangle.flat_normals = face_normal;
+            //add face_normal to each vertex. Then normalize at the end
+            for(var k = 0; k < 3; k+= 1){
+            wevMap[p1].vertex_normals[i] += face_normal[i];
+            wevMap[p2].vertex_normals[i] += face_normal[i];
+            wevMap[p3].vertex_normals[i] += face_normal[i];
+            }
 
             var e1 = [p1, p2];
             var e1_r = [p2, p1];
@@ -334,27 +344,26 @@ function doLoadObj(obj, text) {
                 edge3.rightccw = e1;
             }
 
-            for (var i = 1; i < 4; ++i) {
+            triangles.push(triangle);
+        }
+        for(var i = 0; i< triangles.length; i+= 1) {
+            var cur_tri = triangles[i];
+            var cur_array = cur_tri.vertices; // vertices' index
+
+            for (var i = 0; i < 3; ++i) {
                 
-                if (!(array[i] in facemap)) {
-                    // add a new entry to the map and arrays
-                    var f = array[i].split("/");
+                if (!(cur_array[i] in facemap)) {
+                    // add a new entry to the map and cur_arrays
                     var vtx, nor, tex;
 
-                    if (f.length == 1) {
-                        vtx = parseInt(f[0]) - 1;
-                        nor = vtx;
-                        tex = vtx;
-                    }
-                    else if (f.length = 3) {
-                        vtx = parseInt(f[0]) - 1;
-                        tex = parseInt(f[1]) - 1;
-                        nor = parseInt(f[2]) - 1;
-                    }
-                    else {
-                        obj.ctx.console.log("*** Error: did not understand face '" + array[i] + "'");
-                        return null;
-                    }
+                    vtx = parseInt(cur_array[i]);
+                    nor = vtx;
+                    tex = vtx;
+                    
+                    // if {
+                    //     obj.ctx.console.log("*** Error: did not understand face '" + cur_array[i] + "'");
+                    //     return null;
+                    // }
 
                     // do the vertices
                     var x = 0;
@@ -380,22 +389,16 @@ function doLoadObj(obj, text) {
                     textureArray.push(y);
 
                     // do the normals
-                    x = 0;
-                    y = 0;
-                    z = 1;
-                    
-                    normalArray.push(face_normal[0]);
-                    normalArray.push(face_normal[1]);
-                    normalArray.push(face_normal[2]);
-                    //console.log(normalArray)
-                    // if (nor * 3 + 2 < normal.length) {
-                    //     x = normal[nor * 3];
-                    //     y = normal[nor * 3 + 1];
-                    //     z = normal[nor * 3 + 2];
-                    // }
-                    // normalArray.push(x);
-                    // normalArray.push(y);
-                    // normalArray.push(z);
+                    normalArray.push(cur_tri.flat_normals[0]);
+                    normalArray.push(cur_tri.flat_normals[1]);
+                    normalArray.push(cur_tri.flat_normals[2]);
+                    var cur_vertex = wevMap[vtx];
+                
+                    var cur_avgnorm = cur_vertex.vertex_normals;
+                    //normalize(cur_vertex.vertex_normals);
+                    avg_normalArray.push(cur_avgnorm[0]);
+                    avg_normalArray.push(cur_avgnorm[1]);
+                    avg_normalArray.push(cur_avgnorm[2]);
 
                     facemap[array[i]] = index++; // set an index to each vertex
                 }
@@ -406,14 +409,15 @@ function doLoadObj(obj, text) {
         }
     }
 
-    //console.log(weeMap);
-    //console.log(triangles);
-    //console.log(points);
 
     // set the VBOs
     obj.normalObject = obj.ctx.createBuffer();
     obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.normalObject);
     obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(normalArray), obj.ctx.STATIC_DRAW);
+
+    obj.avgnormalObject = obj.ctx.createBuffer();
+    obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.avgnormalObject);
+    obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(avg_normalArray), obj.ctx.STATIC_DRAW);
 
     obj.texCoordObject = obj.ctx.createBuffer();
     obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.texCoordObject);
@@ -550,7 +554,7 @@ window.onload = function init() {
     program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
-    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/MaikKlein/0b6d6bb58772c13593d0a0add6004c1c/raw/48cf9c6d1cdd43cc6862d7d34a68114e2b93d497/cube.obj');
+    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
     obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
     // //horse simple
     obj3 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
