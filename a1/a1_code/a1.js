@@ -205,6 +205,7 @@ function doLoadObj(obj, text) {
     var texture = [];
     var facemap = {};
     var index = 0;
+    var avgindex = 0;
 
     var triangles = []; // array of triangles
     var points = []; //array of points
@@ -278,11 +279,10 @@ function doLoadObj(obj, text) {
             //add face_normal to each triangle
             triangle.flat_normals = face_normal;
             //add face_normal to each vertex. Then normalize at the end
-            for(var k = 0; k < 3; k+= 1){
-            wevMap[p1].vertex_normals[i] += face_normal[i];
-            wevMap[p2].vertex_normals[i] += face_normal[i];
-            wevMap[p3].vertex_normals[i] += face_normal[i];
-            }
+            wevMap[p1].vertex_normals = add(wevMap[p1].vertex_normals, face_normal);
+            wevMap[p2].vertex_normals = add(wevMap[p2].vertex_normals, face_normal);
+            wevMap[p3].vertex_normals = add(wevMap[p3].vertex_normals, face_normal);
+            
 
             var e1 = [p1, p2];
             var e1_r = [p2, p1];
@@ -345,25 +345,28 @@ function doLoadObj(obj, text) {
             }
 
             triangles.push(triangle);
-        }
-        for(var i = 0; i< triangles.length; i+= 1) {
-            var cur_tri = triangles[i];
-            var cur_array = cur_tri.vertices; // vertices' index
-
-            for (var i = 0; i < 3; ++i) {
+            
+            for (var i = 1; i < 4; ++i) {
                 
-                if (!(cur_array[i] in facemap)) {
-                    // add a new entry to the map and cur_arrays
+                if (!(array[i] in facemap)) {
+                    // add a new entry to the map and arrays
+                    var f = array[i].split("/");
                     var vtx, nor, tex;
 
-                    vtx = parseInt(cur_array[i]);
-                    nor = vtx;
-                    tex = vtx;
-                    
-                    // if {
-                    //     obj.ctx.console.log("*** Error: did not understand face '" + cur_array[i] + "'");
-                    //     return null;
-                    // }
+                    if (f.length == 1) {
+                        vtx = parseInt(f[0]) - 1;
+                        nor = vtx;
+                        tex = vtx;
+                    }
+                    else if (f.length = 3) {
+                        vtx = parseInt(f[0]) - 1;
+                        tex = parseInt(f[1]) - 1;
+                        nor = parseInt(f[2]) - 1;
+                    }
+                    else {
+                        obj.ctx.console.log("*** Error: did not understand face '" + array[i] + "'");
+                        return null;
+                    }
 
                     // do the vertices
                     var x = 0;
@@ -389,23 +392,52 @@ function doLoadObj(obj, text) {
                     textureArray.push(y);
 
                     // do the normals
-                    normalArray.push(cur_tri.flat_normals[0]);
-                    normalArray.push(cur_tri.flat_normals[1]);
-                    normalArray.push(cur_tri.flat_normals[2]);
-                    var cur_vertex = wevMap[vtx];
-                
-                    var cur_avgnorm = cur_vertex.vertex_normals;
-                    //normalize(cur_vertex.vertex_normals);
-                    avg_normalArray.push(cur_avgnorm[0]);
-                    avg_normalArray.push(cur_avgnorm[1]);
-                    avg_normalArray.push(cur_avgnorm[2]);
+                    x = 0;
+                    y = 0;
+                    z = 1;
+                    
+                    normalArray.push(face_normal[0]);
+                    normalArray.push(face_normal[1]);
+                    normalArray.push(face_normal[2]);
+                    //console.log(normalArray)
+                    // if (nor * 3 + 2 < normal.length) {
+                    //     x = normal[nor * 3];
+                    //     y = normal[nor * 3 + 1];
+                    //     z = normal[nor * 3 + 2];
+                    // }
+                    // normalArray.push(x);
+                    // normalArray.push(y);
+                    // normalArray.push(z);
 
                     facemap[array[i]] = index++; // set an index to each vertex
                 }
 
                 indexArray.push(facemap[array[i]]); // every three indices give a triangle
                 currentGroup[1]++;
-            }
+            } // read each index in one line
+        } // read one line
+    } // read all lines
+    facemap = {};
+    for(var i = 0; i< triangles.length; i+= 1){
+        cur_tri = triangles[i];
+        //onsole.log(cur_tri);
+        cur_array = cur_tri.vertices;
+        
+        for (var j = 0; j < 3; j += 1){
+            if (!(cur_array[j] in facemap)) {
+                var vtx, nor, tex;
+                vtx = cur_array[j]; //index of point
+                nor = vtx;
+                tex = vtx;
+
+                var cur_vertex = wevMap[vtx]; //point
+                avg_norm = normalize(cur_vertex.vertex_normals);
+                avg_normalArray.push(avg_norm[0]);
+                avg_normalArray.push(avg_norm[1]);
+                avg_normalArray.push(avg_norm[2]);
+
+                facemap[cur_array[j]] = avgindex++;
+            }   
         }
     }
 
