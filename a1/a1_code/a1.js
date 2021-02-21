@@ -92,18 +92,18 @@ function PointsData()
     self.edges = [];
 } 
 
-/**
- * An object that contains a set of lines and their colors, suitable for
- * rendering using gl.LINES mode.
- * @constructor
- */
-function LinesData() {
-    var self = this;
-    self.vertices = [];   // a Float32Array; 3 components per vertex (x,y,z)
-    self.colors = [];   // a Float32Array; 3 components per vertex RGB
-    self.textures = [];   // a Float32Array; 1 component per vertex
-    self.material = null; // a Material object
-}
+// /**
+//  * An object that contains a set of lines and their colors, suitable for
+//  * rendering using gl.LINES mode.
+//  * @constructor
+//  */
+// function LinesData() {
+//     var self = this;
+//     self.vertices = [];   // a Float32Array; 3 components per vertex (x,y,z)
+//     self.colors = [];   // a Float32Array; 3 components per vertex RGB
+//     self.textures = [];   // a Float32Array; 1 component per vertex
+//     self.material = null; // a Material object
+// }
 function EdgesData() {
     var self = this;
     self.origin = [];
@@ -127,6 +127,7 @@ function TrianglesData() {
     self.vertices = [];       // a Float32Array; index of per vertex 
     self.flat_normals = [];   // a Float32Array; 3 components per vertex <dx,dy,dz>
     self.smooth_normals = []; // a Float32Array; 3 components per vertex <dx,dy,dz>
+    self.edges = [];
 }
 
 /**
@@ -138,7 +139,7 @@ function ModelArrays(name) {
     var self = this;
     self.name = name;     // The name of this model
     self.points = null;   // a PointsData object, if the model contains points
-    self.lines = null;    // a LinesData object, if the model contains lines
+    self.edges = null;    // a EdgesData object, if the model contains Edges
     self.triangles = null;// a TrianglesData object, it the model contains triangles
 }
 
@@ -261,12 +262,18 @@ function doLoadObj(obj, text) {
                 continue;
             }
             triangle = new TrianglesData();
-            p1 = parseInt(array[1]); // index of the point
-            p2 = parseInt(array[2]);
-            p3 = parseInt(array[3]);
+            p1 = parseInt(array[1])-1; // index of the point
+            p2 = parseInt(array[2])-1;
+            p3 = parseInt(array[3])-1;
 
             triangle.vertices = vec3(p1, p2, p3);
             triangles.push(triangle);
+            // calc Normal
+            var selectEdge1 = subtract(wevMap[p1].coords, wevMap[p2].coords);
+            var selectEdge2 = subtract(wevMap[p2].coords, wevMap[p3].coords);
+            var face_normal = normalize(cross(selectEdge1, selectEdge2));
+            face_normal = vec3(face_normal);
+
             var e1 = [p1, p2];
             var e1_r = [p2, p1];
             var e2 = [p2, p3];
@@ -282,11 +289,16 @@ function doLoadObj(obj, text) {
                 edge1.leftccw = e2;
                 edge1.leftcw = e3; // when search for matching edge, use e3 and e3_r
                 weeMap[e1] = edge1;
+
+                wevMap[p1].edges = edge1;
+                triangle.edges = edge1;
             } else {
                 edge1 = weeMap[e1_r];
                 edge1.rightFace = triangle;
                 edge1.rightcw = e3;
                 edge1.rightccw = e2;
+
+                triangle.edges = edge1;
             }
 
             if(!(e2 in weeMap) && !(e2_r in weeMap)) {
@@ -297,6 +309,8 @@ function doLoadObj(obj, text) {
                 edge2.leftccw = e3;
                 edge2.leftcw = e1; // when search for matching edge, use e3 and e3_r
                 weeMap[e2] = edge2;
+
+                wevMap[p2].edges = edge2;
             } else {
                 edge2 = weeMap[e2_r];
                 edge2.rightFace = triangle;
@@ -312,6 +326,7 @@ function doLoadObj(obj, text) {
                 edge3.leftccw = e1;
                 edge3.leftcw = e2; // when search for matching edge, use e3 and e3_r
                 weeMap[e3] = edge3;
+                wevMap[p3].edges = edge3;
             } else {
                 edge3 = weeMap[e3_r];
                 edge3.rightFace = triangle;
@@ -368,14 +383,19 @@ function doLoadObj(obj, text) {
                     x = 0;
                     y = 0;
                     z = 1;
-                    if (nor * 3 + 2 < normal.length) {
-                        x = normal[nor * 3];
-                        y = normal[nor * 3 + 1];
-                        z = normal[nor * 3 + 2];
-                    }
-                    normalArray.push(x);
-                    normalArray.push(y);
-                    normalArray.push(z);
+                    
+                    normalArray.push(face_normal[0]);
+                    normalArray.push(face_normal[1]);
+                    normalArray.push(face_normal[2]);
+                    //console.log(normalArray)
+                    // if (nor * 3 + 2 < normal.length) {
+                    //     x = normal[nor * 3];
+                    //     y = normal[nor * 3 + 1];
+                    //     z = normal[nor * 3 + 2];
+                    // }
+                    // normalArray.push(x);
+                    // normalArray.push(y);
+                    // normalArray.push(z);
 
                     facemap[array[i]] = index++; // set an index to each vertex
                 }
@@ -386,9 +406,9 @@ function doLoadObj(obj, text) {
         }
     }
 
-    //console.log(points);
+    //console.log(weeMap);
     //console.log(triangles);
-    
+    //console.log(points);
 
     // set the VBOs
     obj.normalObject = obj.ctx.createBuffer();
@@ -515,7 +535,7 @@ window.onload = function init() {
 	gl.bufferData( gl.ARRAY_BUFFER,  flatten(points), gl.STATIC_DRAW );
 	program.vPosition = gl.getAttribLocation(program, "vPosition");
 	gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-	gl.enableVertexAttribArray( program.vPosition );
+    gl.enableVertexAttribArray( program.vPosition );
 
 	//***Colors***
 	colorBuffer = gl.createBuffer();
@@ -527,7 +547,7 @@ window.onload = function init() {
 
 	// Get addresses of shader uniforms
 	program.p = gl.getUniformLocation(program, "p");
-	program.mv = gl.getUniformLocation(program, "mv");
+    program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
     obj1 = loadObj(gl, 'https://gist.githubusercontent.com/MaikKlein/0b6d6bb58772c13593d0a0add6004c1c/raw/48cf9c6d1cdd43cc6862d7d34a68114e2b93d497/cube.obj');
@@ -565,13 +585,16 @@ function updateHeightsAndColors(time)
 
 
 function bindBuffersToShader(obj) {
-	//Bind vertexObject - the vertex buffer for the OBJ - to position attribute
+    //Bind vertexObject - the vertex buffer for the OBJ - to position attribute
 	gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexObject);
 	gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
 	gl.enableVertexAttribArray(program.vPosition);
   
-	//repeat for normalObject (3 floats) and textureObject (2 floats) TODO:
-	//if they exist and your shader supports them. 
+	//repeat for normalObject (3 floats) and textureObject (2 floats) 
+    //if they exist and your shader supports them.
+    // gl.bindBuffer(gl.ARRAY_BUFFER, obj.normalObject);
+	// gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, gl.FALSE, 0, 0);
+	// gl.enableVertexAttribArray(program.vNormal); 
   
 	//j3di.js ignores materials - surface colors - so we'll set a basic one here
 	// -- interesting idea: bind normalObject to vColor
@@ -608,6 +631,9 @@ function bindWireBuffersToShader(obj)
 	gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
 	gl.enableVertexAttribArray(program.vPosition);
   
+    //gl.disableVertexAttribArray(program.vNormal);
+    //gl.vertexAttrib4f(program.vNormal, 0.0, 0.0, 0.0, 1.0);
+
 	gl.disableVertexAttribArray(program.vColor);
 	gl.vertexAttrib4f(program.vColor, 0.0, 0.0, 0.0, 1.0); // specify colour as needed
   
@@ -732,6 +758,7 @@ function render() {
         if (obj3.loaded) {
             var objTrans = mult(mv, translate(0,1,0));
             objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
+            objTrans = mult(objTrans,scale(30, 30, 30));
             objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
             objTrans = mult(objTrans, rotateX(cubeRotation));
             objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
