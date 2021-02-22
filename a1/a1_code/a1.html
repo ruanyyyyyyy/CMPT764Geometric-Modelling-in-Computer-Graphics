@@ -68,7 +68,7 @@
 	<p> Please open the console to see the file output! </p>
 	<!-- <button type="button" onclick="loadFileFunction()">Load a file!</button>
   <button type="button" onclick="showAnErrorFunction()">Show an error!</button> -->
-  <button id = "ButtonT">Load a cube</button>
+  <button id = "ButtonT">Load a hand</button>
   <button id = "ButtonHand">Load a venus</button>
   <button id = "ButtonHorse">Load a horse</button>
   <br>
@@ -96,6 +96,12 @@
     <input id="sliderAmount_trans" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider_T(this.value)">
     <p> Zooming: </p>
     <input id="sliderAmount_zoom" type="range" min="0.01" max="5" step="0.01" value="0" oninput="updateSlider_Z(this.value)">
+
+    <p> Slider example with rotation on Y axis: </p>
+    <input id="sliderAmount_Y" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider_R1(this.value)">
+    <p> Translation on both Z and X axis: </p>
+    <input id="sliderAmount_trans_XZ" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider_T1(this.value)">
+    
     
   </body>
 </html>

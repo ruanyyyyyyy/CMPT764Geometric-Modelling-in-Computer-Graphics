@@ -43,6 +43,8 @@ var canvas
 
 var cubeRotation = 0.0;
 var cubeTranslation = 0.0;
+var cubeRotation1 = 0.0;
+var cubeTranslation1 = 0.0;
 var cubeZoom = 1.0;
 
 var flag = false;
@@ -68,11 +70,25 @@ function updateSlider_R(slideAmount) {
     //console.log(cubeRotation);
 }
 
+function updateSlider_R1(slideAmount) {
+	var sliderDiv = document.getElementById("sliderAmount_Y");
+    cubeRotation1 += parseFloat(slideAmount);
+    //console.log(cubeRotation);
+}
+
+
 function updateSlider_T(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_trans");
     cubeTranslation = parseFloat(slideAmount)
     //console.log(cubeTranslation);	
 }
+
+function updateSlider_T1(slideAmount) {
+    var sliderDiv = document.getElementById("sliderAmount_trans_XZ");
+    cubeTranslation1 = parseFloat(slideAmount)
+    //console.log(cubeTranslation);	
+}
+
 
 function updateSlider_Z(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_zoom");
@@ -586,7 +602,7 @@ window.onload = function init() {
     program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
-    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
+    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/goodhand.obj');
     obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
     // //horse simple
     obj3 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
@@ -594,7 +610,7 @@ window.onload = function init() {
     
     document.getElementById("ButtonT").onclick = function(){flag = true; flagHand=false; flagHorse=false;};
     document.getElementById("ButtonHand").onclick = function(){flagHand = true; flag = false; flagHorse=false;};
-    document.getElementById("ButtonHorse").onclick = function(){flagHorse = true; falg = false; flagHand=false};
+    document.getElementById("ButtonHorse").onclick = function(){flagHorse = true; flag = false; flagHand=false};
 
     document.getElementById("ButtonFlat").onclick = function(){flag_mode = 1;};
     document.getElementById("ButtonSmooth").onclick = function(){flag_mode = 2;};
@@ -749,11 +765,14 @@ function render() {
 
     if (flag) {
         if (obj1.loaded) {
-            var objTrans = mult(mv, translate(0,1,0));
+            var objTrans = mult(mv, translate(-3, -3, 0));
             objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
+            objTrans = mult(objTrans, translate(cubeTranslation1, 0, cubeTranslation1));
+            objTrans = mult(objTrans,scale(5, 5, 5));
             objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
             objTrans = mult(objTrans, rotateX(cubeRotation));
             objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
+            objTrans = mult(objTrans, rotateY(cubeRotation1));
             
             gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
             
@@ -774,7 +793,7 @@ function render() {
                     gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
                     break;
                 case 4:
-                    bindSmoothBuffersToShader(obj1);
+                    bindBuffersToShader(obj1);
                     gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
                     bindWireBuffersToShader(obj1);
                     gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
@@ -787,6 +806,7 @@ function render() {
         if (obj2.loaded) {
             var objTrans = mult(mv, translate(0,1,0));
             objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
+            objTrans = mult(objTrans, translate(cubeTranslation1, 0, cubeTranslation1));
             objTrans = mult(objTrans,scale(0.05, 0.05, 0.05));
             objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
             objTrans = mult(objTrans, rotateY(30));
@@ -794,6 +814,7 @@ function render() {
             objTrans = mult(objTrans, rotateZ(-60*0.7));
             objTrans = mult(objTrans, rotateX(cubeRotation));
             objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
+            objTrans = mult(objTrans, rotateY(cubeRotation1));
             
             gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
             
@@ -814,7 +835,7 @@ function render() {
                     gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
                     break;
                 case 4:
-                    bindSmoothBuffersToShader(obj2);
+                    bindBuffersToShader(obj2);
                     gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
                     bindWireBuffersToShader(obj2);
                     gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
@@ -827,10 +848,12 @@ function render() {
         if (obj3.loaded) {
             var objTrans = mult(mv, translate(0,1,0));
             objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
+            objTrans = mult(objTrans, translate(cubeTranslation1, 0, cubeTranslation1));
             objTrans = mult(objTrans,scale(30, 30, 30));
             objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
             objTrans = mult(objTrans, rotateX(cubeRotation));
             objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
+            objTrans = mult(objTrans, rotateY(cubeRotation1));
             
             gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
             
@@ -851,7 +874,7 @@ function render() {
                     gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
                     break;
                 case 4:
-                    bindSmoothBuffersToShader(obj3);
+                    bindBuffersToShader(obj3);
                     gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
                     bindWireBuffersToShader(obj3);
                     gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
