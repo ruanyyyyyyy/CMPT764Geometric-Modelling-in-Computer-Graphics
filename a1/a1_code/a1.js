@@ -348,7 +348,7 @@ function doLoadObj(obj, text) {
             
             for (var i = 1; i < 4; ++i) {
                 
-                if (!(array[i] in facemap)) {
+                //if (!(array[i] in facemap)) {
                     // add a new entry to the map and arrays
                     var f = array[i].split("/");
                     var vtx, nor, tex;
@@ -410,7 +410,7 @@ function doLoadObj(obj, text) {
                     // normalArray.push(z);
 
                     facemap[array[i]] = index++; // set an index to each vertex
-                }
+                //}
 
                 indexArray.push(facemap[array[i]]); // every three indices give a triangle
                 currentGroup[1]++;
@@ -424,7 +424,7 @@ function doLoadObj(obj, text) {
         cur_array = cur_tri.vertices;
         
         for (var j = 0; j < 3; j += 1){
-            if (!(cur_array[j] in facemap)) {
+            //if (!(cur_array[j] in facemap)) {
                 var vtx, nor, tex;
                 vtx = cur_array[j]; //index of point
                 nor = vtx;
@@ -437,7 +437,7 @@ function doLoadObj(obj, text) {
                 avg_normalArray.push(avg_norm[2]);
 
                 facemap[cur_array[j]] = avgindex++;
-            }   
+            //}   
         }
     }
 
@@ -652,6 +652,39 @@ function bindBuffersToShader(obj) {
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexObject);
 }
 
+function bindSmoothBuffersToShader(obj) {
+    //Bind vertexObject - the vertex buffer for the OBJ - to position attribute
+	gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexObject);
+	gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
+	gl.enableVertexAttribArray(program.vPosition);
+  
+	//repeat for normalObject (3 floats) and textureObject (2 floats) 
+    //if they exist and your shader supports them.
+    // gl.bindBuffer(gl.ARRAY_BUFFER, obj.normalObject);
+	// gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, gl.FALSE, 0, 0);
+	// gl.enableVertexAttribArray(program.vNormal); 
+  
+	//j3di.js ignores materials - surface colors - so we'll set a basic one here
+	// -- interesting idea: bind normalObject to vColor
+	var colors = "normal"; // set to "normal" to visual normals array
+	if (colors == "uniform") 
+	{
+		gl.disableVertexAttribArray(program.vColor);
+		gl.vertexAttrib4f(program.vColor, 0.8, 0.8, 0.8, 1.0); // specify colour as necessary
+	}
+	else
+	{
+		gl.bindBuffer(gl.ARRAY_BUFFER, obj.avgnormalObject);
+		gl.vertexAttribPointer(program.vColor, 3, gl.FLOAT, gl.FALSE, 0, 0);
+		gl.enableVertexAttribArray(program.vColor);
+	}
+	
+	//j3di.js stores OBJs as vertex arrays with an element array lookup buffer
+	//the buffer describes TRIANGLES with UNSIGNED_SHORT
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexObject);
+}
+
+
 //----------------------------------------------------------------------------
 // Creates a wireframe for an OBJ for modified j3d9.js 
 // and binds necessary buffers to draw it
@@ -682,6 +715,8 @@ function bindWireBuffersToShader(obj)
 	}
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.wireIndexObject);	
 }
+
+
 
 
 
@@ -723,14 +758,14 @@ function render() {
             gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(objTrans));
             
             switch(flag_mode) {
-                case 1:
+                case 1: // flat
                   //Draw solid OBJ
                   bindBuffersToShader(obj1);
                   gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
-                case 2:
+                case 2: //smooth
                   //Draw solid OBJ
-                  bindBuffersToShader(obj1);
+                  bindSmoothBuffersToShader(obj1);
                   gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 3:
@@ -739,7 +774,7 @@ function render() {
                     gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
                     break;
                 case 4:
-                    bindBuffersToShader(obj1);
+                    bindSmoothBuffersToShader(obj1);
                     gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
                     bindWireBuffersToShader(obj1);
                     gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
@@ -766,13 +801,11 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj2);
-                  //gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
-                 //TODO:
-                  gl.drawArrays(gl.TRIANGLES, obj2.vertexArray.length, gl.UNSIGNED_SHORT, 0)
+                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 2:
                   //Draw solid OBJ
-                  bindBuffersToShader(obj2);
+                  bindSmoothBuffersToShader(obj2);
                   gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 3:
@@ -781,7 +814,7 @@ function render() {
                     gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
                     break;
                 case 4:
-                    bindBuffersToShader(obj2);
+                    bindSmoothBuffersToShader(obj2);
                     gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
                     bindWireBuffersToShader(obj2);
                     gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
@@ -809,7 +842,7 @@ function render() {
                   break;
                 case 2:
                   //Draw solid OBJ
-                  bindBuffersToShader(obj3);
+                  bindSmoothBuffersToShader(obj3);
                   gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 3:
@@ -818,7 +851,7 @@ function render() {
                     gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
                     break;
                 case 4:
-                    bindBuffersToShader(obj3);
+                    bindSmoothBuffersToShader(obj3);
                     gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
                     bindWireBuffersToShader(obj3);
                     gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
