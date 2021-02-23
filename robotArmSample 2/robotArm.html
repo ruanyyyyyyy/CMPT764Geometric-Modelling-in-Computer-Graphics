@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+attribute vec3 vPosition;
+attribute vec3 normal;
+attribute vec3 vColor;
+uniform mat4 projectionMatrix, modelViewMatrix, normalMat;
+uniform vec3 lightPos;
+varying vec3 normalInterp;
+varying vec3 vertPos;
+varying vec3 diffuseColor;
+varying vec3 fLightPos;
+
+
+void main(){
+    vec4 vertPos4 = modelViewMatrix * vec4(vPosition, 1.0);
+    vertPos = vec3(vertPos4) / vertPos4.w;
+    normalInterp = vec3(normalMat * vec4(normal, 0.0));
+    gl_Position = projectionMatrix * vertPos4;
+    diffuseColor = vColor;
+    fLightPos = lightPos;
+}
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+
+// Adapted from http://www.cs.toronto.edu/~jacobson/phong-demo/
+precision mediump float;
+varying vec3 normalInterp;  // Surface normal
+varying vec3 vertPos;       // Vertex position
+varying vec3 diffuseColor; 
+varying vec3 fLightPos;
+
+const float Ka = 0.7;
+const float Kd = 0.8;
+const float Ks = 0.9;
+const float shininessVal = 23.0;
+const vec3 ambientColor = vec3(0.25, 0.25, 0.25);
+const vec3 specularColor = vec3(1, 1, 1);
+
+void main() {
+    vec3 N = normalize(normalInterp);
+    // vec3 L = normalize(fLightPos - vertPos);
+    vec3 L = normalize(fLightPos);
+
+    // Lambert's cosine law
+    float lambertian = max(dot(N, L), 0.0);
+    float specular = 0.0;
+    if(lambertian > 0.0) {
+    vec3 R = reflect(-L, N);      // Reflected light vector
+    vec3 V = normalize(-vertPos); // Vector to viewer
+    // Compute the specular term
+    float specAngle = max(dot(R, V), 0.0);
+    specular = pow(specAngle, shininessVal);
+    }
+    gl_FragColor = vec4(Ka * ambientColor +
+                        Kd * lambertian * diffuseColor +
+                        Ks * specular * specularColor, 1.0);
+}
+    
+</script>
+
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="initShaders.js"></script>
+<script type="text/javascript" src="MV.js"></script>
+<script type="text/javascript" src="robotArm.js"></script>
+
+<div>
+body angle -180 <input id="slider1" type="range"
+ min="-180" max="180" step="10" value="0"
+  />
+ 180
+</div><br/>
+
+<div>
+lower arm angle -180 <input id="slider2" type="range"
+ min="-180" max="180" step="10" value="0"
+  />
+ 180
+</div><br/>
+
+<div>
+upper arm angle -180 <input id="slider3" type="range"
+ min="-180" max="180" step="10" value="0"
+  />
+ 180
+</div><br/>
+
+<div>
+    <label for="views">Choose a view:</label>
+
+    <select name="views" id="views">
+        <option value="s">Side View</option>
+        <option value="t">Top View</option>
+    </select>
+</div><br/>
+<div>
+    <form id="position">
+        
+        <label for="fname">old x:</label>
+        <input type="text" id="old_x" name="fname">
+        <label for="lname">old y:</label>
+        <input type="text" id="old_y" name="lname">
+        <label for="fname">old z:</label>
+        <input type="text" id="old_z" name="fname"><br>
+        <label for="lname">new x:</label>
+        <input type="text" id="new_x" name="lname">
+        <label for="lname">new y:</label>
+        <input type="text" id="new_y" name="lname">
+        <label for="lname">new z:</label>
+        <input type="text" id="new_z" name="lname"><br>
+        <button type="button" id="fetch">Fetch</button>
+    </form>
+</div>
+<body><br/>
+
+<canvas id="gl-canvas" width="512"" height="512">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+</body>
+</html>
