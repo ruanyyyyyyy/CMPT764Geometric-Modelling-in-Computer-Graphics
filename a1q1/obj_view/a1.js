@@ -491,7 +491,7 @@ function doLoadObj(obj, text) {
     facemap = {};
     for(var i = 0; i< triangles.length; i+= 1){
         cur_tri = triangles[i];
-        //onsole.log(cur_tri);
+        //console.log(cur_tri);
         cur_array = cur_tri.vertices;
         
         for (var j = 0; j < 3; j += 1){
@@ -657,10 +657,9 @@ window.onload = function init() {
     program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
-    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/goodhand.obj');
+    obj1 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/bigsmile.obj');
     obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
-    // //horse simple
-    obj3 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
+    obj3 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/nice8.obj');
     
     
     document.getElementById("ButtonT").onclick = function(){flag = true; flagHand=false; flagHorse=false;};
@@ -820,7 +819,7 @@ function render() {
 
     if (flag) {
         if (obj1.loaded) {
-            var objTrans = mult(mv, translate(-3, -3, 0));
+            var objTrans = mult(mv, translate(-1, -1, 0));
             objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
             objTrans = mult(objTrans, translate(cubeTranslation1, 0, cubeTranslation1));
             objTrans = mult(objTrans,scale(5, 5, 5));
@@ -833,19 +832,21 @@ function render() {
             
             switch(flag_mode) {
                 case 1: // flat
-                  //Draw solid OBJ
-                  bindBuffersToShader(obj1);
-                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
-                  break;
+                    //Draw solid OBJ
+                    bindBuffersToShader(obj1);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
+                    //gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                    break;
                 case 2: //smooth
-                  //Draw solid OBJ
-                  bindSmoothBuffersToShader(obj1);
-                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
-                  break;
+                    //Draw solid OBJ
+                    bindSmoothBuffersToShader(obj1);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
+                    //gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                    break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj1);
-                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0); //TODO: error here. cannot render the upper half section
                     break;
                 case 4:
                     bindBuffersToShader(obj1);
@@ -877,17 +878,20 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj2);
-                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
+                  //gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj2);
-                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
+                  //gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj2);
                     gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    //gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
                     break;
                 case 4:
                     bindBuffersToShader(obj2);
@@ -904,7 +908,6 @@ function render() {
             var objTrans = mult(mv, translate(0,1,0));
             objTrans = mult(objTrans, translate(0, cubeTranslation, 0));
             objTrans = mult(objTrans, translate(cubeTranslation1, 0, cubeTranslation1));
-            objTrans = mult(objTrans,scale(30, 30, 30));
             objTrans = mult(objTrans,scale(cubeZoom,cubeZoom,cubeZoom));
             objTrans = mult(objTrans, rotateX(cubeRotation));
             objTrans = mult(objTrans, rotateZ(cubeRotation*0.7));
@@ -916,12 +919,14 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj3);
-                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj3.numIndices);
+                  //gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj3);
-                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj3.numIndices);
+                  //gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
                   break;
                 case 3:
                     //Draw wire OBJ
@@ -938,49 +943,6 @@ function render() {
         }
     }
     
-    // if (!flag && !flagHand && !flagHorse) {
-    //     //Rebind buffers for procedural mesh
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-    //     gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    //     gl.enableVertexAttribArray( program.vPosition );
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-    //     gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    //     gl.enableVertexAttribArray( program.vColor );
-
-        
-    //     mv = mult(mv, rotate(roty,vec3(0,1,0)));
-    //     roty+= 0.5;
-    //     mv = mult(mv, translate(-3, 0, -3));
-    //     mv = mult(mv, scale(6, 6, 6));
-
-
-    //     //Animate the mesh and copy the updated data to gl buffers
-    //     updateHeightsAndColors(time);
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(points) );
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(colors) );
-        
-    //     //Or update time in the shader so it can animate the vertex stream
-    //     gl.uniform1f(program.time, time);
-        
-    //     time += 0.01;
-
-    //     gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
-    //     gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
-
-    //     //Wires and points will have solid colour, like a uniform	
-    //     //Disabling a vertex attribute array allows it to take on a fixed value, a bit like a uniform
-    //     gl.disableVertexAttribArray( program.vColor );
-
-    //     //Set a disabled attribute like this
-    //     gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
-
-    //     gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
-
-    //     //Renable the vertex attrib array to permit per-vertex colour array to work again
-    //     gl.enableVertexAttribArray( program.vColor );
-    // }
 
 	
 	requestAnimationFrame(render);
