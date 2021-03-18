@@ -50,7 +50,7 @@ var cubeZoom = 1.0;
 var flag = false;
 var flagHand = false;
 var flagHorse = false;
-var flag_mode = 4;
+var flag_mode = 1;
 var responsetext;
 var vertices = [
     vec4(-0.5, -0.5,  0.5, 1.0),
@@ -265,6 +265,7 @@ function doLoadObj(obj, text) {
     vertexArray = [];
     normalArray = [];
     avg_normalArray = [];
+    wireArray = [];
 
     textureArray = [];
     indexArray = [];
@@ -470,15 +471,6 @@ function doLoadObj(obj, text) {
                     normalArray.push(face_normal[0]);
                     normalArray.push(face_normal[1]);
                     normalArray.push(face_normal[2]);
-                    //console.log(normalArray)
-                    // if (nor * 3 + 2 < normal.length) {
-                    //     x = normal[nor * 3];
-                    //     y = normal[nor * 3 + 1];
-                    //     z = normal[nor * 3 + 2];
-                    // }
-                    // normalArray.push(x);
-                    // normalArray.push(y);
-                    // normalArray.push(z);
 
                     facemap[array[i]] = index++; // set an index to each vertex
                 //}
@@ -508,8 +500,31 @@ function doLoadObj(obj, text) {
                 avg_normalArray.push(avg_norm[2]);
 
                 facemap[cur_array[j]] = avgindex++;
+
             //}   
         }
+        wireArray.push(wevMap[cur_array[0]].coords[0]);
+        wireArray.push(wevMap[cur_array[0]].coords[1]);
+        wireArray.push(wevMap[cur_array[0]].coords[2]);
+
+        wireArray.push(wevMap[cur_array[1]].coords[0]);
+        wireArray.push(wevMap[cur_array[1]].coords[1]);
+        wireArray.push(wevMap[cur_array[1]].coords[2]);
+        wireArray.push(wevMap[cur_array[1]].coords[0]);
+        wireArray.push(wevMap[cur_array[1]].coords[1]);
+        wireArray.push(wevMap[cur_array[1]].coords[2]);
+
+        wireArray.push(wevMap[cur_array[2]].coords[0]);
+        wireArray.push(wevMap[cur_array[2]].coords[1]);
+        wireArray.push(wevMap[cur_array[2]].coords[2]);
+        wireArray.push(wevMap[cur_array[2]].coords[0]);
+        wireArray.push(wevMap[cur_array[2]].coords[1]);
+        wireArray.push(wevMap[cur_array[2]].coords[2]);
+        
+        wireArray.push(wevMap[cur_array[0]].coords[0]);
+        wireArray.push(wevMap[cur_array[0]].coords[1]);
+        wireArray.push(wevMap[cur_array[0]].coords[2]);
+
     }
 
 
@@ -530,7 +545,11 @@ function doLoadObj(obj, text) {
     obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.vertexObject);
     obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(vertexArray), obj.ctx.STATIC_DRAW);
 
-    obj.indexArray = indexArray; obj.wireIndexElements = [];
+    obj.wireObject = obj.ctx.createBuffer();
+    obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.wireObject);
+    obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(wireArray), obj.ctx.STATIC_DRAW);
+
+    obj.indexArray = indexArray; 
 
     obj.numIndices = indexArray.length;
     obj.indexObject = obj.ctx.createBuffer();
@@ -564,37 +583,7 @@ function downloadFileFunction(){
     // Start file download.
     downloadFile(file, responsetext);
 }
-function quad(a, b, c, d) {
 
-    var t1 = subtract(vertices[b], vertices[a]);
-    var t2 = subtract(vertices[c], vertices[b]);
-    var normal = cross(t1, t2);
-    normal = vec3(normal);
-
-    points.push(vertices[a]);
-    normals.push(normal);
-    points.push(vertices[b]);
-    normals.push(normal);
-    points.push(vertices[c]);
-    normals.push(normal);
-    points.push(vertices[a]);
-    normals.push(normal);
-    points.push(vertices[c]);
-    normals.push(normal);
-    points.push(vertices[d]);
-    normals.push(normal);
-}
-
-
-function colorCube()
-{
-   quad(1, 0, 3, 2);
-   quad(2, 3, 7, 6);
-   quad(3, 0, 4, 7);
-   quad(6, 5, 1, 2);
-   quad(4, 5, 6, 7);
-   quad(5, 4, 0, 1);
-}
 
 //----------------------------------------------------------------------------
 // Initialization Event Function
@@ -620,47 +609,18 @@ window.onload = function init() {
 	program = initShaders(gl, "vertex-shader", "fragment-shader");
 	gl.useProgram(program);
 
-	// Set up data to drw
-	mesh.tris = {};
-	mesh.tris.Start = points.length;
-	colorCube();
-	mesh.tris.Vertices = points.length - mesh.tris.Start;
-
-	mesh.wires= {};
-	mesh.wires.Start = points.length;
-	points = points.concat(TrianglesToWireframe(points.slice(mesh.tris.Start, mesh.tris.Start + mesh.tris.Vertices)));
-	mesh.wires.Vertices = points.length - mesh.wires.Start;
-
-	//Construct and initialize colours array with a throw away value
-	colors = Array(points.length).fill(vec4());
-
-	// Load the data into GPU data buffers and
-	// Associate shader attributes with corresponding data buffers
-	//***Vertices***
-	vertexBuffer = gl.createBuffer();
-	gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-	gl.bufferData( gl.ARRAY_BUFFER,  flatten(points), gl.STATIC_DRAW );
 	program.vPosition = gl.getAttribLocation(program, "vPosition");
-	gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    gl.enableVertexAttribArray( program.vPosition );
-
-	//***Colors***
-	colorBuffer = gl.createBuffer();
-	gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-	gl.bufferData( gl.ARRAY_BUFFER,  flatten(colors), gl.STATIC_DRAW );
 	program.vColor = gl.getAttribLocation(program, "vColor");
-	gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-	gl.enableVertexAttribArray( program.vColor );
 
 	// Get addresses of shader uniforms
 	program.p = gl.getUniformLocation(program, "p");
     program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
-    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/goodhand.obj');
+    obj1 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/bigsmile.obj');
     obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
     // //horse simple
-    obj3 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
+    obj3 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/horse.obj');
     
     
     document.getElementById("ButtonT").onclick = function(){flag = true; flagHand=false; flagHorse=false;};
@@ -677,18 +637,7 @@ window.onload = function init() {
 
 
 
-//----------------------------------------------------------------------------
-// Calculates y values and colours for vertices based on x and z values (indices)
-//----------------------------------------------------------------------------
-function updateHeightsAndColors(time)
-{
-	for (var i = 0; i < points.length; i++)
-	{
-		var h = Math.sin((points[i][0]+time) * Math.PI*2)/15 + Math.sin(points[i][2] * Math.PI*3)/20;
-		points[i][1] = h;
-		colors[i] = vec4(h*10-0.5,1-h*10-0.5,1,1);
-	}
-}
+
 
 
 function bindBuffersToShader(obj) {
@@ -756,35 +705,20 @@ function bindSmoothBuffersToShader(obj) {
 }
 
 
-//----------------------------------------------------------------------------
-// Creates a wireframe for an OBJ for modified j3d9.js 
-// and binds necessary buffers to draw it
-//
-// To use this function, first add the element index array to the object
-// that j3di.js builds. Change j3di.js:507 or a nearby blank line to this:
-// obj.indexArray = indexArray; obj.wireIndexElements = [];
-//----------------------------------------------------------------------------
+
+
+
 function bindWireBuffersToShader(obj)
 {
 	//Bind vertexObject - the vertex buffer for the OBJ - to position attribute
-	gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexObject);
+	gl.bindBuffer(gl.ARRAY_BUFFER, obj.wireObject);
 	gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
 	gl.enableVertexAttribArray(program.vPosition);
   
-    //gl.disableVertexAttribArray(program.vNormal);
-    //gl.vertexAttrib4f(program.vNormal, 0.0, 0.0, 0.0, 1.0);
 
 	gl.disableVertexAttribArray(program.vColor);
 	gl.vertexAttrib4f(program.vColor, 0.0, 0.0, 0.0, 1.0); // specify colour as needed
   
-	if (obj.wireIndexElements.length == 0)
-	{
-		obj.wireIndexElements = TrianglesToWireframe(obj.indexArray);
-		obj.wireIndexObject = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.wireIndexObject);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, Uint16Array.from(obj.wireIndexElements), gl.STREAM_DRAW);
-	}
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.wireIndexObject);	
 }
 
 
@@ -835,23 +769,26 @@ function render() {
                 case 1: // flat
                   //Draw solid OBJ
                   bindBuffersToShader(obj1);
-                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
                   break;
                 case 2: //smooth
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj1);
-                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
+                  console.log(obj1.numIndices); // 104136
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj1);
-                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj1.numIndices);
+                    gl.drawArrays(gl.LINES, obj1.numIndices, obj1.numIndices*2-obj1.numIndices-1);
                     break;
                 case 4:
                     bindBuffersToShader(obj1);
-                    gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
                     bindWireBuffersToShader(obj1);
-                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj1.numIndices);
+                    gl.drawArrays(gl.LINES, obj1.numIndices, obj1.numIndices*2-obj1.numIndices-1);
                     break;
               }
         }
@@ -877,23 +814,23 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj2);
-                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj2);
-                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj2);
-                    gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj2.numIndices*2);
                     break;
                 case 4:
                     bindBuffersToShader(obj2);
-                    gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
                     bindWireBuffersToShader(obj2);
-                    gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj2.numIndices*2);
                     break;
               }
         }
@@ -916,71 +853,32 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj3);
-                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.numIndices/2));
+                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.numIndices/2), obj3.numIndices-Math.floor(obj3.numIndices/2)-1);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj3);
-                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.numIndices/2));
+                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.numIndices/2), obj3.numIndices-Math.floor(obj3.numIndices/2)-1);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj3);
-                    gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj3.numIndices);
+                    gl.drawArrays(gl.LINES, obj3.numIndices, obj3.numIndices*2-obj3.numIndices-1);
                     break;
                 case 4:
                     bindBuffersToShader(obj3);
-                    gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.numIndices/2));
+                    gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.numIndices/2), obj3.numIndices-Math.floor(obj3.numIndices/2)-1);
                     bindWireBuffersToShader(obj3);
-                    gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj3.numIndices);
+                    gl.drawArrays(gl.LINES, obj3.numIndices, obj3.numIndices*2-obj3.numIndices-1);
                     break;
               }
         }
     }
-    
-    // if (!flag && !flagHand && !flagHorse) {
-    //     //Rebind buffers for procedural mesh
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-    //     gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    //     gl.enableVertexAttribArray( program.vPosition );
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-    //     gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    //     gl.enableVertexAttribArray( program.vColor );
-
-        
-    //     mv = mult(mv, rotate(roty,vec3(0,1,0)));
-    //     roty+= 0.5;
-    //     mv = mult(mv, translate(-3, 0, -3));
-    //     mv = mult(mv, scale(6, 6, 6));
-
-
-    //     //Animate the mesh and copy the updated data to gl buffers
-    //     updateHeightsAndColors(time);
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(points) );
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(colors) );
-        
-    //     //Or update time in the shader so it can animate the vertex stream
-    //     gl.uniform1f(program.time, time);
-        
-    //     time += 0.01;
-
-    //     gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
-    //     gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
-
-    //     //Wires and points will have solid colour, like a uniform	
-    //     //Disabling a vertex attribute array allows it to take on a fixed value, a bit like a uniform
-    //     gl.disableVertexAttribArray( program.vColor );
-
-    //     //Set a disabled attribute like this
-    //     gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
-
-    //     gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
-
-    //     //Renable the vertex attrib array to permit per-vertex colour array to work again
-    //     gl.enableVertexAttribArray( program.vColor );
-    // }
 
 	
 	requestAnimationFrame(render);
