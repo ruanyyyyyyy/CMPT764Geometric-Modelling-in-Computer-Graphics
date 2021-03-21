@@ -63,8 +63,8 @@ var vertices = [
     vec4(0.5,  0.5, -0.5, 1.0),
     vec4(0.5, -0.5, -0.5, 1.0)
 ];
-var k;
-var n;
+var kvalue;
+var nvalue;
 
 
 function initShaders( gl, vertexShaderId, fragmentShaderId )
@@ -271,7 +271,7 @@ function doLoadObj(obj, text) {
 
     var triangles = []; // array of triangles
     var points = []; //array of points
-    var edges = []; // array of edges
+    var edges = []; // array of edges [0, 1], [4, 7], .....
 
     var wevMap = {}; // we: winged edge, v: vertex
     var weeMap = {}; // we: winged edge, e: edge
@@ -306,7 +306,7 @@ function doLoadObj(obj, text) {
             vertex.push(parseFloat(array[2]));
             vertex.push(parseFloat(array[3]));
             p = new PointsData();
-            p.coords = vec3(parseFloat(array[1]), parseFloat(array[2]), parseFloat(array[3]));
+            p.coords = [parseFloat(array[1]), parseFloat(array[2]), parseFloat(array[3])];
             wevMap[points.length] = p;
             points.push(p);
         }
@@ -332,19 +332,21 @@ function doLoadObj(obj, text) {
             p2 = parseInt(array[2])-1;
             p3 = parseInt(array[3])-1;
 
-            triangle.vertices = vec3(p1, p2, p3);
+            triangle.vertices = [p1, p2, p3];
 
             // calc Normal
-            var selectEdge1 = subtract(wevMap[p1].coords, wevMap[p2].coords);
-            var selectEdge2 = subtract(wevMap[p2].coords, wevMap[p3].coords);
-            var face_normal = normalize(cross(selectEdge1, selectEdge2));
-            face_normal = vec3(face_normal);
+            var selectEdge1 = math.subtract(wevMap[p1].coords, wevMap[p2].coords);
+            var selectEdge2 = math.subtract(wevMap[p2].coords, wevMap[p3].coords);
+            var tempN = math.cross(selectEdge1, selectEdge2)
+            var tempL = math.norm(tempN)
+            var face_normal = math.divide(tempN, tempL);
+            
             //add face_normal to each triangle
             triangle.flat_normals = face_normal;
             //add face_normal to each vertex. Then normalize at the end
-            wevMap[p1].vertex_normals = add(wevMap[p1].vertex_normals, face_normal);
-            wevMap[p2].vertex_normals = add(wevMap[p2].vertex_normals, face_normal);
-            wevMap[p3].vertex_normals = add(wevMap[p3].vertex_normals, face_normal);
+            wevMap[p1].vertex_normals = math.add(wevMap[p1].vertex_normals, face_normal);
+            wevMap[p2].vertex_normals = math.add(wevMap[p2].vertex_normals, face_normal);
+            wevMap[p3].vertex_normals = math.add(wevMap[p3].vertex_normals, face_normal);
             
 
             var e1 = [p1, p2];
@@ -488,9 +490,10 @@ function doLoadObj(obj, text) {
                 tex = vtx;
 
                 var cur_vertex = wevMap[vtx]; //point
-                cur_vertex.triangles.push(cur_tri);
+                points[vtx].triangles.push(cur_tri);
 
-                avg_norm = normalize(cur_vertex.vertex_normals);
+                tempL = math.norm(cur_vertex.vertex_normals)
+                avg_norm = math.divide(cur_vertex.vertex_normals, tempL);
                 avg_normalArray.push(avg_norm[0]);
                 avg_normalArray.push(avg_norm[1]);
                 avg_normalArray.push(avg_norm[2]);
@@ -566,24 +569,31 @@ function doLoadObj(obj, text) {
 // k: multiple choice scheme, select the edge collapse amongst k randomly chosen candidate edges which gives the least quadric error.
 // quadric based error
 // n:  the number of edges to collapse,
-function decimation(obj, k, n) {
-    var wepoints = obj.geometry.points;
+function decimation(obj, k, n) { //FIXME: each time linked to the same point?
+    var wepoints = obj.geometry.points; 
+    console.log("#points", wepoints.length); // originally, 502
     var weedges = obj.geometry.edges; // [0,1], [5, 7]....
-    var wetriangles = obj.geometry.triangles;
-    for(var repe = 0; repe < n; repe += 1) {
+    var wetriangles = obj.geometry.triangles; // 1000
+    
     var global_q = [];
     for(var i = 0; i < wepoints.length; i+=1) {
         cur_p = wepoints[i];
         // find all incident triangles. cur_p.triangles
-        cur_q = mat4(0.0, 0.0, 0.0, 0.0,
-                     0.0, 0.0, 0.0, 0.0,
-                     0.0, 0.0, 0.0, 0.0,
-                     0.0, 0.0, 0.0, 0.0);
+        cur_q = [[0.0, 0.0, 0.0, 0.0],
+                 [0.0, 0.0, 0.0, 0.0],
+                 [0.0, 0.0, 0.0, 0.0],
+                 [0.0, 0.0, 0.0, 0.0]];
         for(var j = 0; j < cur_p.triangles.length; j += 1) {
             cur_tri = cur_p.triangles[j];
-            
+            // TODO:calculate new normal using vertices, find each face normal a,b,c
+            // cur_verts = cur_tri.vertices;
+            // tedge1 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[1]].coords);
+            // tedge2 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[2]].coords);
+            // tempN = math.cross(tedge1, tedge2);
+            // tempL = math.norm(tempN);
+            // facenormal =[tempN[0]/tempL, tempN[1]/tempL, tempN[2]/tempL];
             facenormal = cur_tri.flat_normals;
-            // find each face normal a,b,c
+            
             var a = facenormal[0];
             var b = facenormal[1];
             var c = facenormal[2];
@@ -598,77 +608,90 @@ function decimation(obj, k, n) {
         }
         // store the total incident triangles' error metric matrix of this point
         global_q.push(cur_q);
-        
     }
+    var divider = [[2.0, 2.0, 2.0, 2.0],
+                   [2.0, 2.0, 2.0, 2.0],
+                    [2.0, 2.0, 2.0, 2.0],
+                    [2.0, 2.0, 2.0, 2.0]];
+    for(var repe = 0; repe < n; repe += 1) {
+        // find the minimum value among k candidates
+        var cur_min = 1000;
+        var edgeInd; // edge to collapse
+        var targetV;
+        var targeto;
+        var targetd; 
+        var targetQ;
+        for(var i = 0; i < k; i += 1) {
+            randomInd = Math.floor(Math.random()*weedges.length);
+            t1 = weedges[randomInd][0]; //index
+            t2 = weedges[randomInd][1];
+            newV = math.add(wepoints[t1].coords, wepoints[t2].coords);
+            newV = [newV[0]/2, newV[1]/2, newV[2]/2, 1.0];
+            
+            Q = math.add(global_q[t1],global_q[t2]);
+            Q = math.dotDivide(Q, divider);
+            
+            newVerr = math.multiply(newV, math.multiply(Q, newV));//TODO:
+            if(math.isNaN(newVerr)) { console.log("error is NaN!");}
+            if(newVerr < cur_min){
+                cur_min = newVerr;
+                edgeInd = randomInd;
+                targetV = [newV[0], newV[1], newV[2]];
+                targeto = t1; //index
+                targetd = t2;
+                targetQ = Q;
+            }
+        }
+        // console.log(cur_min, edgeInd, targeto, targetd);
+       
+     //TODO: check if the update is correct
+        new_V = new PointsData();
+        new_V.coords = targetV;
+        wepoints.push(new_V);
+        newInd = wepoints.length-1
+        global_q.push(Q);
+        for(var i = 0; i < wepoints[targeto].triangles.length; i+=1) {
+            for(var j = 0; j < 3; j+=1) {
+                if(wepoints[targeto].triangles[i].vertices[j] == targeto) {
+                    wepoints[targeto].triangles[i].vertices[j] = newInd;
+                }
+            }
+            wepoints[newInd].triangles.push(wepoints[targeto].triangles[i]);
+        }
+        for(var i = 0; i < wepoints[targetd].triangles.length; i+=1) {
+            for(var j = 0; j < 3; j+=1) {
+                if(wepoints[targetd].triangles[i].vertices[j] == targetd) {
+                    wepoints[targetd].triangles[i].vertices[j] = newInd;
+                }
+            }
+            wepoints[newInd].triangles.push(wepoints[targetd].triangles[i]);
+        }
+        //check if two points are the same in one triangle, if not, add it to newInd triangles.
+        for (var i=0; i < wepoints[newInd].triangles.length; i+=1) {
+            tempTri = wepoints[newInd].triangles[i];
+            tempVerts = tempTri.vertices;
+            if(tempVerts[0]==tempVerts[1] || tempVerts[0]==tempVerts[2] || tempVerts[1]==tempVerts[2]){
+                wepoints[newInd].triangles.splice(i, 1);
+            }
+        }
 
-    // after finish all points
-    // find the minimum value among k candidates
-    var cur_min = 100000;
-    var trgInd; // edge to collapse
-    var targetV;
-    var targeto;
-    var targetd;
-    for(var i = 0; i < k; i += 1) {
-        edgeInd = Math.floor(Math.random()*weedges.length);
-        t1 = weedges[edgeInd][0]; //index
-        t2 = weedges[edgeInd][1];
-        newV = add(wepoints[t1].coords, wepoints[t2].coords);
-        newV = [newV[0]/2, newV[1]/2, newV[2]/2, 1];
-        newVerr = calculateErr(newV, math.add(global_q[t1],global_q[t2]));
-        if(newVerr < cur_min){
-            cur_min = newVerr;
-            trgInd = edgeInd;
-            targetV = [newV[0], newV[1], newV[2]];
-            targeto = t1; //index
-            targetd = t2;
-        }
-    }
-    
-    new_V = new PointsData();
-    new_V.coords = targetV;
-    points.push(new_V);
-    newInd = points.length-1
-    for(var i = 0; i < wepoints[targeto].triangles.length; i+=1) {
-        if((targeto in wepoints[targeto].triangles[i].vertices)&&(targetd in wepoints[targeto].triangles[i].vertices)) {
-            wepoints[targeto].triangles.splice(0, 1);
-        }
-        
-        for(var j = 0; j < 3; j+=1) {
-            if(wepoints[targeto].triangles[i].vertices[j] == targeto) {
-                wepoints[targeto].triangles[i].vertices[j] = newInd;
+        // remove edges, remove faces from point.triangles
+        weedges.splice(edgeInd, 1);
+        for(var i = 0; i < weedges.length; i += 1) {
+            if(weedges[i][0]==targeto) {
+                weedges[i][0] = newInd;
+            }
+            if(weedges[i][1]==targeto) {
+                weedges[i][1] = newInd;
+            }
+            if(weedges[i][0]==targetd) {
+                weedges[i][0] = newInd;
+            }
+            if(weedges[i][1]==targetd) {
+                weedges[i][1] = newInd;
             }
         }
         
-    }
-    for(var i = 0; i < wepoints[targetd].triangles.length; i+=1) {
-        if((targeto in wepoints[targetd].triangles[i].vertices)&&(targetd in wepoints[targetd].triangles[i].vertices)) {
-            wepoints[targetd].triangles.splice(0, 1);
-        }
-
-        for(var j = 0; j < 3; j+=1) {
-            if(wepoints[targetd].triangles[i].vertices[j] == targetd) {
-                wepoints[targetd].triangles[i].vertices[j] = newInd;
-            }
-        }
-        
-    }
-
-    // remove edges, remove faces from point.triangles
-    weedges.splice(trgInd, 1);
-    for(var i = 0; i < weedges.length; i += 1) {
-        if(weedges[i][0]==targeto) {
-            weedges[i][0] = newInd;
-        }
-        if(weedges[i][1]==targeto) {
-            weedges[i][1] = newInd;
-        }
-        if(weedges[i][0]==targetd) {
-            weedges[i][0] = newInd;
-        }
-        if(weedges[i][1]==targetd) {
-            weedges[i][1] = newInd;
-        }
-    }
     }
     // calculate coords of new vertices
     // change connected edge destination to this new coords
@@ -681,9 +704,7 @@ function decimation(obj, k, n) {
     
     for(var i = 0; i < wetriangles.length; i += 1) {
         verts = wetriangles[i].vertices;
-        // console.log(verts);
-        normals = wetriangles[i].flat_normals;
-        // console.log(normals);
+        normals = wetriangles[i].flat_normals; //TODO: normal changed
         for (var j = 0; j < 3; j += 1) {
             var x = wepoints[verts[j]].coords[0];
             var y = wepoints[verts[j]].coords[1];
@@ -735,11 +756,7 @@ function decimation(obj, k, n) {
     return obj
 
 }
-function calculateErr(v, Q) {
-    // var ans = Q[0][0]*v[0]*v[0] + Q[1][1]*v[1]*v[1] + Q[2][2]*v[3]*v[3] + 2*Q[1][0]*v[0]*v[1] + 2*Q[2][0]*v[0]*v[2] + 2*Q[2][1]*v[2]*v[1] + 2*Q[3][0]*v[0] + 2*Q[3][1]*v[1] + 2*Q[2][3]*v[2] + Q[3][3];
-    var ans = math.multiply(v, math.multiply(Q, math.transpose(v)));
-    return ans; 
-}
+
 
 //A simple function to download files.
 function downloadFile(filename, text) {
@@ -807,8 +824,8 @@ window.onload = function init() {
     document.getElementById("ButtonHand").onclick = function(){flagHand = true; flag = false; flagHorse=false;};
     document.getElementById("ButtonHorse").onclick = function(){flagHorse = true; flag = false; flagHand=false};
     document.getElementById("ButtonDecimate").onclick = function(){flagDec = true;};
-    k = parseInt(document.getElementById("kvalue").value);
-    n = parseInt(document.getElementById("nvalue").value);
+    kvalue = parseInt(document.getElementById("kvalue").value);
+    nvalue = parseInt(document.getElementById("nvalue").value);
 
     document.getElementById("ButtonFlat").onclick = function(){flag_mode = 1;};
     document.getElementById("ButtonSmooth").onclick = function(){flag_mode = 2;};
@@ -958,7 +975,6 @@ function render() {
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj1);
                   gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
-                  console.log(obj1.numIndices); // 104136
                   break;
                 case 3:
                     //Draw wire OBJ
@@ -974,6 +990,12 @@ function render() {
                     gl.drawArrays(gl.LINES, obj1.numIndices, obj1.numIndices*2-obj1.numIndices-1);
                     break;
               }
+            if(flagDec) {
+                kvalue = parseInt(document.getElementById("kvalue").value);
+                nvalue = parseInt(document.getElementById("nvalue").value);
+                obj1 = decimation(obj1, kvalue, nvalue);
+                flagDec = false;
+            }
         }
     }
 
@@ -1017,7 +1039,9 @@ function render() {
                     break;
             }
             if(flagDec) {
-                obj2 = decimation(obj2, k, n);
+                kvalue = parseInt(document.getElementById("kvalue").value);
+                nvalue = parseInt(document.getElementById("nvalue").value);
+                obj2 = decimation(obj2, kvalue, nvalue);
                 flagDec = false;
             }
         }
