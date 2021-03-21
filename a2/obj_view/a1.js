@@ -759,7 +759,19 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
 
 
 //A simple function to download files.
-function downloadFile(filename, text) {
+function downloadFile(filename, obj) {
+    //TODO: get text from obj
+    var text;
+    for(var i = 0; i < obj.geometry.points.length; i += 1) {
+        tempvtx = obj.geometry.points[i].coords; 
+        text += "v" + " " + String(tempvtx[0]) + " " + String(tempvtx[1]) + " " + String(tempvtx[2]) + "\n";
+    }
+    for(var i = 0; i < obj.geometry.triangles.length; i += 1) {
+        tempvtx = obj.geometry.triangles[i].vertices; 
+        text += "f" + " " + String(tempvtx[0]) + " " + String(tempvtx[1]) + " " + String(tempvtx[2]) + "\n";
+    }
+
+
     var element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
     element.setAttribute('download', filename);
@@ -778,7 +790,9 @@ function downloadFileFunction(){
     var file = document.getElementById("filename").value;
     
     // Start file download.
-    downloadFile(file, responsetext);
+    if(flag) downloadFile(file, obj1);
+    if(flagHand) downloadFile(file, obj2);
+    if(flagHorse) downloadFile(file, obj3);
 }
 
 
@@ -1088,6 +1102,12 @@ function render() {
                     gl.drawArrays(gl.LINES, obj3.numIndices, obj3.numIndices*2-obj3.numIndices-1);
                     break;
               }
+            if(flagDec) {
+                kvalue = parseInt(document.getElementById("kvalue").value);
+                nvalue = parseInt(document.getElementById("nvalue").value);
+                obj2 = decimation(obj3, kvalue, nvalue);
+                flagDec = false;
+            }
         }
     }
 

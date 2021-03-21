@@ -160,22 +160,12 @@ function PointsData()
     // 3d coordinates
     var self = this;
     self.coords= []; // a Float32Array; 3 components per vertex (x,y,z)
-    self.edges = [];
+    self.edges = []; // array of incident edges
     self.vertex_normals = vec3(0.0, 0.0, 0.0);
+    self.triangles = [];
+    
 } 
 
-// /**
-//  * An object that contains a set of lines and their colors, suitable for
-//  * rendering using gl.LINES mode.
-//  * @constructor
-//  */
-// function LinesData() {
-//     var self = this;
-//     self.vertices = [];   // a Float32Array; 3 components per vertex (x,y,z)
-//     self.colors = [];   // a Float32Array; 3 components per vertex RGB
-//     self.textures = [];   // a Float32Array; 1 component per vertex
-//     self.material = null; // a Material object
-// }
 function EdgesData() {
     var self = this;
     self.origin = [];
@@ -187,9 +177,6 @@ function EdgesData() {
     self.rightcw = [];
     self.rightccw = [];
 }
-
-
-
 /**
  * A collection of triangles that can all be rendered using gl.TRIANGLES.
  * @constructor
@@ -197,7 +184,7 @@ function EdgesData() {
 function TrianglesData() {
     var self = this;
     self.vertices = [];       // a Float32Array; index of per vertex 
-    self.flat_normals = [];   // a Float32Array; 3 components per vertex <dx,dy,dz>
+    self.flat_normals = [];   // a Float32Array; 3 components per triangle <dx,dy,dz>
     //self.smooth_normals = []; // a Float32Array; 3 components per vertex <dx,dy,dz>
     self.edges = [];
 }
@@ -281,9 +268,10 @@ function doLoadObj(obj, text) {
 
     var triangles = []; // array of triangles
     var points = []; //array of points
+    var edges = []; // array of edges
 
-    var wevMap = {};
-    var weeMap = {};
+    var wevMap = {}; // we: winged edge, v: vertex
+    var weeMap = {}; // we: winged edge, e: edge
 
     // This is a map which associates a range of indices with a name
     // The name comes from the 'g' tag (of the form "g NAME"). Indices
@@ -371,8 +359,10 @@ function doLoadObj(obj, text) {
                 edge1.leftccw = e2;
                 edge1.leftcw = e3; // when search for matching edge, use e3 and e3_r
                 weeMap[e1] = edge1;
+                edges.push(e1);
 
-                wevMap[p1].edges = edge1;
+                wevMap[p1].edges.push(e1);
+                wevMap[p2].edges.push(e2);
                 triangle.edges = edge1;
             } else {
                 edge1 = weeMap[e1_r];
@@ -391,8 +381,10 @@ function doLoadObj(obj, text) {
                 edge2.leftccw = e3;
                 edge2.leftcw = e1; // when search for matching edge, use e3 and e3_r
                 weeMap[e2] = edge2;
+                edges.push(e2);
 
-                wevMap[p2].edges = edge2;
+                wevMap[p2].edges.push(e2);
+                wevMap[p3].edges.push(e2);
             } else {
                 edge2 = weeMap[e2_r];
                 edge2.rightFace = triangle;
@@ -408,7 +400,10 @@ function doLoadObj(obj, text) {
                 edge3.leftccw = e1;
                 edge3.leftcw = e2; // when search for matching edge, use e3 and e3_r
                 weeMap[e3] = edge3;
-                wevMap[p3].edges = edge3;
+                edges.push(e3);
+
+                wevMap[p3].edges.push(e3);
+                wevMap[p1].edges.push(e3);
             } else {
                 edge3 = weeMap[e3_r];
                 edge3.rightFace = triangle;
@@ -464,10 +459,6 @@ function doLoadObj(obj, text) {
                     textureArray.push(y);
 
                     // do the normals
-                    x = 0;
-                    y = 0;
-                    z = 1;
-                    
                     normalArray.push(face_normal[0]);
                     normalArray.push(face_normal[1]);
                     normalArray.push(face_normal[2]);
@@ -494,6 +485,8 @@ function doLoadObj(obj, text) {
                 tex = vtx;
 
                 var cur_vertex = wevMap[vtx]; //point
+                cur_vertex.triangles.push(cur_tri);
+
                 avg_norm = normalize(cur_vertex.vertex_normals);
                 avg_normalArray.push(avg_norm[0]);
                 avg_normalArray.push(avg_norm[1]);
@@ -556,9 +549,133 @@ function doLoadObj(obj, text) {
     obj.ctx.bindBuffer(obj.ctx.ELEMENT_ARRAY_BUFFER, obj.indexObject);
     obj.ctx.bufferData(obj.ctx.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexArray), obj.ctx.STREAM_DRAW);
 
-    obj.groups = groups;
+    var geometry = new ModelArrays();
+    geometry.points = points;
+    geometry.edges = edges;
+    geometry.triangles = triangles;
+    obj.geometry = geometry;
 
+    obj.groups = groups;
     obj.loaded = true;
+}
+
+// edge collaspe
+// k: multiple choice scheme, select the edge collapse amongst k randomly chosen candidate edges which gives the least quadric error.
+// quadric based error
+// n:  the number of edges to collapse,
+function decimation(obj, k, n) {
+    var wepoints = obj.geometry.points;
+    var weedges = obj.geometry.edges; // [0,1], [5, 7]....
+    var wetriangles = obj.geometry.triangles;
+    var global_q = [];
+    for(var i = 0; i < wepoints.length; i+=1) {
+        cur_p = wepoints[i];
+        // find all incident triangles. cur_p.triangles
+        cur_q = mat4(0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 0.0);
+        for(var j = 0; j < cur_p.triangles.length; j += 1) {
+            cur_tri = cur_p.triangles[j];
+            
+            facenormal = cur_tri.flat_normals;
+            // find each face normal a,b,c
+            var a = facenormal[0];
+            var b = facenormal[1];
+            var c = facenormal[2];
+            // calculate d with cur_p.coords
+            var d = -(a*cur_p.coords[0] + b*cur_p.coords[1] + c*cur_p.coords[2]);
+            // calculate error metric matrix
+            var qv = [[a*a, a*b, a*c, a*d],
+                [a*b, b*b, b*c, b*d],
+                [a*c, b*c, c*c, c*d],
+                [a*d, b*d, c*d, d*d]];
+            cur_q = cur_q + qv;
+        }
+        // store the total incident triangles' error metric matrix of this point
+        global_q.push(cur_q);
+        
+    }
+
+    // after finish all points
+    // find the minimum value among k candidates
+    var candidates = [];
+    var cur_min = 100000;
+    var target; // edge to collapse
+    var targetV;
+    var targetO;
+    var targetD;
+    for(var i = 0; i < k; i += 1) {
+        edgeInd = Math.floor(Math.random()*weedges.length);
+        t1 = weedges[edgeInd][0]; //index
+        t2 = weedges[edgeInd][1];
+        newV = (wepoints[t1].coords + wepoints[t2].coords) / 2;
+        newV = [newV[0], newV[1], newV[2], 1];
+        newVerr = calculateErr(newV, global_q[o]+global_q[d]);
+        if(newVerr < cur_min){
+            cur_min = newVerr;
+            trgInd = edgeInd;
+            targetV = [newV[0], newV[1], newV[2]];
+            targeto = t1; //index
+            targetd = t2;
+        }
+    }
+    new_V = new PointsData();
+    new_V.coords = targetV;
+    points.push(new_V);
+    newInd = points.length-1
+    for(var i = 0; i < wepoints[targeto].triangles.length; i+=1) {
+        if((targeto in wepoints[targeto].triangles[i].vertices)&&(targetd in wepoints[targeto].triangles[i].vertices)) {
+            wepoints[targeto].triangles.splice(0, 1);
+        }
+        
+        for(var j = 0; j < 3; j+=1) {
+            if(wepoints[targeto].triangles[i].vertices[j] == targeto) {
+                wepoints[targeto].triangles[i].vertices[j] = newInd;
+            }
+        }
+        
+    }
+    for(var i = 0; i < wepoints[targetd].triangles.length; i+=1) {
+        if((targeto in wepoints[targetd].triangles[i].vertices)&&(targetd in wepoints[targetd].triangles[i].vertices)) {
+            wepoints[targetd].triangles.splice(0, 1);
+        }
+
+        for(var j = 0; j < 3; j+=1) {
+            if(wepoints[targetd].triangles[i].vertices[j] == targetd) {
+                wepoints[targetd].triangles[i].vertices[j] = newInd;
+            }
+        }
+        
+    }
+
+    // remove edges, remove faces from point.triangles
+    edges.splice(trgInd, 1);
+    for(var i = 0; i < edges.length; i += 1) {
+        if(edges[i][0]==targeto) {
+            edges[i][0] = newInd;
+        }
+        if(edges[i][1]==targeto) {
+            edges[i][1] = newInd;
+        }
+        if(edges[i][0]==targetd) {
+            edges[i][0] = newInd;
+        }
+        if(edges[i][1]==targetd) {
+            edges[i][1] = newInd;
+        }
+    }
+    // calculate coords of new vertices
+    // change connected edge destination to this new coords
+    // repeat n times
+    // build new vertexArray, normalArray, avgNormalarray
+    // return new obj
+
+}
+function calculateErr(v, Q) {
+    // var ans = Q[0][0]*v[0]*v[0] + Q[1][1]*v[1]*v[1] + Q[2][2]*v[3]*v[3] + 2*Q[1][0]*v[0]*v[1] + 2*Q[2][0]*v[0]*v[2] + 2*Q[2][1]*v[2]*v[1] + 2*Q[3][0]*v[0] + 2*Q[3][1]*v[1] + 2*Q[2][3]*v[2] + Q[3][3];
+    ans = math.multiply(math.transpose(v), math.multiply(v, Q));
+    return ans; 
 }
 
 //A simple function to download files.
