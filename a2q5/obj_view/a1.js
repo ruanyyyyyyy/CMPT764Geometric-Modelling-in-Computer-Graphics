@@ -571,8 +571,9 @@ function doLoadObj(obj, text) {
 // n:  the number of edges to collapse,
 function decimation(obj, k, n) { //FIXME: each time linked to the same point?
     var wepoints = obj.geometry.points; 
-    console.log("#points", wepoints.length); // originally, 502
+    //console.log("#points", wepoints.length); // originally, 502
     var weedges = obj.geometry.edges; // [0,1], [5, 7]....
+    console.log("#edges", weedges.length)
     var wetriangles = obj.geometry.triangles; // 1000
     
     var global_q = [];
@@ -629,7 +630,7 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
             newV = [newV[0]/2, newV[1]/2, newV[2]/2, 1.0];
             
             Q = math.add(global_q[t1],global_q[t2]);
-            Q = math.dotDivide(Q, divider);
+            //Q = math.dotDivide(Q, divider);
             
             newVerr = math.multiply(newV, math.multiply(Q, newV));//TODO:
             if(math.isNaN(newVerr)) { console.log("error is NaN!");}
@@ -828,7 +829,7 @@ window.onload = function init() {
     program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
-    obj1 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/bigsmile.obj');
+    obj1 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/bigfish.obj');
     obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
     // //horse simple
     obj3 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/horse.obj');
