@@ -125,33 +125,33 @@ function initShaders( gl, vertexShaderId, fragmentShaderId )
 function updateSlider_R(slideAmount) {
 	var sliderDiv = document.getElementById("sliderAmount");
     cubeRotation += parseFloat(slideAmount);
-    //console.log(cubeRotation);
+    
 }
 
 function updateSlider_R1(slideAmount) {
 	var sliderDiv = document.getElementById("sliderAmount_Y");
     cubeRotation1 += parseFloat(slideAmount);
-    //console.log(cubeRotation);
+    
 }
 
 
 function updateSlider_T(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_trans");
     cubeTranslation = parseFloat(slideAmount)
-    //console.log(cubeTranslation);	
+    
 }
 
 function updateSlider_T1(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_trans_XZ");
     cubeTranslation1 = parseFloat(slideAmount)
-    //console.log(cubeTranslation);	
+    
 }
 
 
 function updateSlider_Z(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_zoom");
     cubeZoom = parseFloat(slideAmount)
-    //console.log(cubeZoom);	
+    	
 }
 
 /**
@@ -563,22 +563,10 @@ function doLoadObj(obj, text) {
 
     obj.groups = groups;
     obj.loaded = true;
-}
 
-// edge collaspe
-// k: multiple choice scheme, select the edge collapse amongst k randomly chosen candidate edges which gives the least quadric error.
-// quadric based error
-// n:  the number of edges to collapse,
-function decimation(obj, k, n) { //FIXME: each time linked to the same point?
-    var wepoints = obj.geometry.points; 
-    //console.log("#points", wepoints.length); // originally, 502
-    var weedges = obj.geometry.edges; // [0,1], [5, 7]....
-    console.log("#edges", weedges.length)
-    var wetriangles = obj.geometry.triangles; // 1000
-    
     var global_q = [];
-    for(var i = 0; i < wepoints.length; i+=1) {
-        cur_p = wepoints[i];
+    for(var i = 0; i < points.length; i+=1) {
+        cur_p = points[i];
         // find all incident triangles. cur_p.triangles
         cur_q = [[0.0, 0.0, 0.0, 0.0],
                  [0.0, 0.0, 0.0, 0.0],
@@ -610,6 +598,55 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
         // store the total incident triangles' error metric matrix of this point
         global_q.push(cur_q);
     }
+    obj.global_q = global_q;
+
+}
+
+// edge collaspe
+// k: multiple choice scheme, select the edge collapse amongst k randomly chosen candidate edges which gives the least quadric error.
+// quadric based error
+// n:  the number of edges to collapse,
+function decimation(obj, k, n) { //FIXME: each time linked to the same point?
+    var wepoints = obj.geometry.points; 
+    //console.log("#points", wepoints.length); // originally, 502
+    var weedges = obj.geometry.edges; // [0,1], [5, 7]....
+    console.log("#edges", weedges.length)
+    var wetriangles = obj.geometry.triangles; // 1000
+    var global_q = obj.global_q;
+    // var global_q = [];
+    // for(var i = 0; i < wepoints.length; i+=1) {
+    //     cur_p = wepoints[i];
+    //     // find all incident triangles. cur_p.triangles
+    //     cur_q = [[0.0, 0.0, 0.0, 0.0],
+    //              [0.0, 0.0, 0.0, 0.0],
+    //              [0.0, 0.0, 0.0, 0.0],
+    //              [0.0, 0.0, 0.0, 0.0]];
+    //     for(var j = 0; j < cur_p.triangles.length; j += 1) {
+    //         cur_tri = cur_p.triangles[j];
+    //         // TODO:calculate new normal using vertices, find each face normal a,b,c
+    //         // cur_verts = cur_tri.vertices;
+    //         // tedge1 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[1]].coords);
+    //         // tedge2 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[2]].coords);
+    //         // tempN = math.cross(tedge1, tedge2);
+    //         // tempL = math.norm(tempN);
+    //         // facenormal =[tempN[0]/tempL, tempN[1]/tempL, tempN[2]/tempL];
+    //         facenormal = cur_tri.flat_normals;
+            
+    //         var a = facenormal[0];
+    //         var b = facenormal[1];
+    //         var c = facenormal[2];
+    //         // calculate d with cur_p.coords
+    //         var d = -(a*cur_p.coords[0] + b*cur_p.coords[1] + c*cur_p.coords[2]);
+    //         // calculate error metric matrix
+    //         var qv = [[a*a, a*b, a*c, a*d],
+    //             [a*b, b*b, b*c, b*d],
+    //             [a*c, b*c, c*c, c*d],
+    //             [a*d, b*d, c*d, d*d]];
+    //         cur_q = math.add(cur_q, qv);
+    //     }
+    //     // store the total incident triangles' error metric matrix of this point
+    //     global_q.push(cur_q);
+    // }
     var divider = [[2.0, 2.0, 2.0, 2.0],
                    [2.0, 2.0, 2.0, 2.0],
                     [2.0, 2.0, 2.0, 2.0],
@@ -622,18 +659,34 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
         var targeto;
         var targetd; 
         var targetQ;
+        var chosen=[];
         for(var i = 0; i < k; i += 1) {
             randomInd = Math.floor(Math.random()*weedges.length);
+            if(chosen.includes(randomInd)) {
+                i -= 1;
+                continue;
+            } else{
+                chosen.push(randomInd);
+            }
+            
             t1 = weedges[randomInd][0]; //index
             t2 = weedges[randomInd][1];
-            newV = math.add(wepoints[t1].coords, wepoints[t2].coords);
-            newV = [newV[0]/2, newV[1]/2, newV[2]/2, 1.0];
+            x = math.add(wepoints[t1].coords, wepoints[t2].coords);
+            x = [x[0]/2, x[1]/2, x[2]/2, 1.0];
             
             Q = math.add(global_q[t1],global_q[t2]);
-            //Q = math.dotDivide(Q, divider);
-            
-            newVerr = math.multiply(newV, math.multiply(Q, newV));//TODO:
+            //Q = math.dotDivide(Q, divider);//TODO: see difference
+            //Inner optimization
+            // var a = [[Q[0][0], Q[0][1], Q[0][2], Q[0][3]], 
+            //         [Q[1][0], Q[1][1], Q[1][2], Q[1][3]],
+            //         [Q[2][0], Q[2][1], Q[2][2], Q[2][3]],
+            //         [0.0, 0.0, 0.0, 1.0]];
+            // var b = [0.0, 0.0, 0.0, 1.0];
+            // var x = math.usolve(a, b); // a * x = b
+            newVerr = math.multiply(x, math.multiply(Q, x));//TODO:
+            newV = [x[0], x[1], x[2]];
             if(math.isNaN(newVerr)) { console.log("error is NaN!");}
+
             if(newVerr < cur_min){
                 cur_min = newVerr;
                 edgeInd = randomInd;
@@ -643,21 +696,29 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
                 targetQ = Q;
             }
         }
-        // console.log(cur_min, edgeInd, targeto, targetd);
+        // TODO: sometime cannot choose targeto
        
      //TODO: check if the update is correct
         new_V = new PointsData();
         new_V.coords = targetV;
         wepoints.push(new_V);
-        newInd = wepoints.length-1
-        global_q.push(Q);
+        newInd = wepoints.length-1;
+        global_q.push(targetQ);
+        wepoints[newInd].triangles = [];
         for(var i = 0; i < wepoints[targeto].triangles.length; i+=1) {
             for(var j = 0; j < 3; j+=1) {
                 if(wepoints[targeto].triangles[i].vertices[j] == targeto) {
                     wepoints[targeto].triangles[i].vertices[j] = newInd;
                 }
             }
-            wepoints[newInd].triangles.push(wepoints[targeto].triangles[i]);
+            
+            tempTri = wepoints[targeto].triangles[i];
+            tempVerts = tempTri.vertices;
+            if(tempVerts[0]==tempVerts[1] || tempVerts[0]==tempVerts[2] || tempVerts[1]==tempVerts[2]){
+                continue;
+            } else {
+                wepoints[newInd].triangles.push(wepoints[targeto].triangles[i]);
+            }
         }
         for(var i = 0; i < wepoints[targetd].triangles.length; i+=1) {
             for(var j = 0; j < 3; j+=1) {
@@ -665,16 +726,28 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
                     wepoints[targetd].triangles[i].vertices[j] = newInd;
                 }
             }
-            wepoints[newInd].triangles.push(wepoints[targetd].triangles[i]);
-        }
-        //check if two points are the same in one triangle, if not, add it to newInd triangles.
-        for (var i=0; i < wepoints[newInd].triangles.length; i+=1) {
-            tempTri = wepoints[newInd].triangles[i];
+            tempTri = wepoints[targetd].triangles[i];
             tempVerts = tempTri.vertices;
             if(tempVerts[0]==tempVerts[1] || tempVerts[0]==tempVerts[2] || tempVerts[1]==tempVerts[2]){
-                wepoints[newInd].triangles.splice(i, 1);
+                continue;
+            } else {
+                wepoints[newInd].triangles.push(wepoints[targetd].triangles[i]);
             }
         }
+        //check if two points are the same in one triangle, if not, add it to newInd triangles.
+        
+        new_wetriangles =  []
+        for (var i=0; i < wetriangles.length; i+=1) {
+            tempTri = wetriangles[i];
+            tempVerts = tempTri.vertices;
+            if(tempVerts[0]==tempVerts[1] || tempVerts[0]==tempVerts[2] || tempVerts[1]==tempVerts[2]){
+                continue;
+            } else {
+                new_wetriangles.push(tempTri);
+            }
+        }
+        // console.log("after", new_wetriangles.length)
+        wetriangles = new_wetriangles;
 
         // remove edges, remove faces from point.triangles
         weedges.splice(edgeInd, 1);
@@ -694,6 +767,7 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
         }
         
     }
+    obj.geometry.triangles = wetriangles;
     // calculate coords of new vertices
     // change connected edge destination to this new coords
     // repeat n times
@@ -829,7 +903,7 @@ window.onload = function init() {
     program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
-    obj1 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/bigfish.obj');
+    obj1 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a1/goodhand.obj');
     obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
     // //horse simple
     obj3 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/horse.obj');
@@ -847,7 +921,8 @@ window.onload = function init() {
     document.getElementById("ButtonWire").onclick = function(){flag_mode = 3;};
     document.getElementById("ButtonBoth").onclick = function(){flag_mode = 4;};
 
-	render();
+    render();
+
 };
 
 
@@ -984,25 +1059,25 @@ function render() {
                 case 1: // flat
                   //Draw solid OBJ
                   bindBuffersToShader(obj1);
-                  gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj1.geometry.triangles.length*3);
                   break;
                 case 2: //smooth
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj1);
-                  gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj1.geometry.triangles.length*3);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj1);
-                    gl.drawArrays(gl.LINES, 0, obj1.numIndices);
-                    gl.drawArrays(gl.LINES, obj1.numIndices, obj1.numIndices*2-obj1.numIndices-1);
+                    gl.drawArrays(gl.LINES, 0, obj1.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES,obj1.geometry.triangles.length*3, obj1.geometry.triangles.length*3*2-obj1.geometry.triangles.length*3-1);
                     break;
                 case 4:
                     bindBuffersToShader(obj1);
-                    gl.drawArrays(gl.TRIANGLES, 0, obj1.numIndices);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj1.geometry.triangles.length*3);
                     bindWireBuffersToShader(obj1);
-                    gl.drawArrays(gl.LINES, 0, obj1.numIndices);
-                    gl.drawArrays(gl.LINES, obj1.numIndices, obj1.numIndices*2-obj1.numIndices-1);
+                    gl.drawArrays(gl.LINES, 0, obj1.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES, obj1.geometry.triangles.length*3, obj1.geometry.triangles.length*3*2-obj1.geometry.triangles.length*3-1);
                     break;
               }
             if(flagDec) {
@@ -1034,23 +1109,23 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj2);
-                  gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.geometry.triangles.length*3);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj2);
-                  gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.geometry.triangles.length*3);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj2);
-                    gl.drawArrays(gl.LINES, 0, obj2.numIndices*2);
+                    gl.drawArrays(gl.LINES, 0, obj2.geometry.triangles.length*3*2);
                     break;
                 case 4:
                     bindBuffersToShader(obj2);
-                    gl.drawArrays(gl.TRIANGLES, 0, obj2.numIndices);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj2.geometry.triangles.length*3);
                     bindWireBuffersToShader(obj2);
-                    gl.drawArrays(gl.LINES, 0, obj2.numIndices*2);
+                    gl.drawArrays(gl.LINES, 0, obj2.geometry.triangles.length*3*2);
                     break;
             }
             if(flagDec) {
@@ -1079,28 +1154,28 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj3);
-                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.numIndices/2));
-                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.numIndices/2), obj3.numIndices-Math.floor(obj3.numIndices/2)-1);
+                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.geometry.triangles.length*3/2));
+                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.geometry.triangles.length*3/2), obj3.geometry.triangles.length*3-Math.floor(obj3.geometry.triangles.length*3/2)-1);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj3);
-                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.numIndices/2));
-                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.numIndices/2), obj3.numIndices-Math.floor(obj3.numIndices/2)-1);
+                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.geometry.triangles.length*3/2));
+                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.geometry.triangles.length*3/2), obj3.geometry.triangles.length*3-Math.floor(obj3.geometry.triangles.length*3/2)-1);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj3);
-                    gl.drawArrays(gl.LINES, 0, obj3.numIndices);
-                    gl.drawArrays(gl.LINES, obj3.numIndices, obj3.numIndices*2-obj3.numIndices-1);
+                    gl.drawArrays(gl.LINES, 0, obj3.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES, obj3.geometry.triangles.length*3, obj3.geometry.triangles.length*3*2-obj3.geometry.triangles.length*3-1);
                     break;
                 case 4:
                     bindBuffersToShader(obj3);
-                    gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.numIndices/2));
-                    gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.numIndices/2), obj3.numIndices-Math.floor(obj3.numIndices/2)-1);
+                    gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.geometry.triangles.length*3/2));
+                    gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.geometry.triangles.length*3/2), obj3.geometry.triangles.length*3-Math.floor(obj3.geometry.triangles.length*3/2)-1);
                     bindWireBuffersToShader(obj3);
-                    gl.drawArrays(gl.LINES, 0, obj3.numIndices);
-                    gl.drawArrays(gl.LINES, obj3.numIndices, obj3.numIndices*2-obj3.numIndices-1);
+                    gl.drawArrays(gl.LINES, 0, obj3.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES, obj3.geometry.triangles.length*3, obj3.geometry.triangles.length*3*2-obj3.geometry.triangles.length*3-1);
                     break;
               }
             if(flagDec) {
