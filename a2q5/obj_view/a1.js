@@ -574,25 +574,35 @@ function doLoadObj(obj, text) {
                  [0.0, 0.0, 0.0, 0.0]];
         for(var j = 0; j < cur_p.triangles.length; j += 1) {
             cur_tri = cur_p.triangles[j];
-            // TODO:calculate new normal using vertices, find each face normal a,b,c
-            // cur_verts = cur_tri.vertices;
-            // tedge1 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[1]].coords);
-            // tedge2 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[2]].coords);
-            // tempN = math.cross(tedge1, tedge2);
-            // tempL = math.norm(tempN);
-            // facenormal =[tempN[0]/tempL, tempN[1]/tempL, tempN[2]/tempL];
             facenormal = cur_tri.flat_normals;
-            
             var a = facenormal[0];
             var b = facenormal[1];
             var c = facenormal[2];
-            // calculate d with cur_p.coords
             var d = -(a*cur_p.coords[0] + b*cur_p.coords[1] + c*cur_p.coords[2]);
-            // calculate error metric matrix
+            //calculate error metric matrix
             var qv = [[a*a, a*b, a*c, a*d],
                 [a*b, b*b, b*c, b*d],
                 [a*c, b*c, c*c, c*d],
                 [a*d, b*d, c*d, d*d]];
+
+            // vert1 = points[cur_tri.vertices[0]].coords;
+            // vert2 = points[cur_tri.vertices[1]].coords;
+            // vert3 = points[cur_tri.vertices[2]].coords;
+            // xyz = [[vert1[0], vert1[1], vert1[2]],
+            //        [vert2[0], vert2[1], vert2[2]],
+            //        [vert3[0], vert3[1], vert3[2]]];
+            // right1 = [1.0, 1.0, 1.0];
+            // abc = math.multiply(math.inv(xyz),right1);
+            // a = abc[0]/math.norm(abc);
+            // b = abc[1]/math.norm(abc);
+            // c = abc[2]/math.norm(abc);
+            // d = -1/math.norm(abc);
+            // var qv = [[a*a, a*b, a*c, a*d],
+            //     [a*b, b*b, b*c, b*d],
+            //     [a*c, b*c, c*c, c*d],
+            //     [a*d, b*d, c*d, d*d]];
+            // console.log(qv);
+
             cur_q = math.add(cur_q, qv);
         }
         // store the total incident triangles' error metric matrix of this point
@@ -610,7 +620,7 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
     var wepoints = obj.geometry.points; 
     //console.log("#points", wepoints.length); // originally, 502
     var weedges = obj.geometry.edges; // [0,1], [5, 7]....
-    console.log("#edges", weedges.length)
+    // console.log("#edges", weedges.length)
     var wetriangles = obj.geometry.triangles; // 1000
     var global_q = obj.global_q;
     // var global_q = [];
@@ -653,13 +663,14 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
                     [2.0, 2.0, 2.0, 2.0]];
     for(var repe = 0; repe < n; repe += 1) {
         // find the minimum value among k candidates
-        var cur_min = 1000;
+        var cur_min = Infinity;
         var edgeInd; // edge to collapse
         var targetV;
         var targeto;
         var targetd; 
         var targetQ;
         var chosen=[];
+        var newVerr;
         for(var i = 0; i < k; i += 1) {
             randomInd = Math.floor(Math.random()*weedges.length);
             if(chosen.includes(randomInd)) {
@@ -671,26 +682,28 @@ function decimation(obj, k, n) { //FIXME: each time linked to the same point?
             
             t1 = weedges[randomInd][0]; //index
             t2 = weedges[randomInd][1];
+            Q = math.add(global_q[t1],global_q[t2]);
+            // Q = math.dotDivide(Q, divider);
             x = math.add(wepoints[t1].coords, wepoints[t2].coords);
             x = [x[0]/2, x[1]/2, x[2]/2, 1.0];
             
-            Q = math.add(global_q[t1],global_q[t2]);
-            //Q = math.dotDivide(Q, divider);//TODO: see difference
             //Inner optimization
-            // var a = [[Q[0][0], Q[0][1], Q[0][2], Q[0][3]], 
-            //         [Q[1][0], Q[1][1], Q[1][2], Q[1][3]],
-            //         [Q[2][0], Q[2][1], Q[2][2], Q[2][3]],
-            //         [0.0, 0.0, 0.0, 1.0]];
-            // var b = [0.0, 0.0, 0.0, 1.0];
+            // var a = [[Q[0][0], Q[0][1], Q[0][2]], 
+            //         [Q[1][0], Q[1][1], Q[1][2]],
+            //         [Q[2][0], Q[2][1], Q[2][2]]];
+            // var b = [-Q[0][3], -Q[1][3], -Q[2][3]];
             // var x = math.usolve(a, b); // a * x = b
-            newVerr = math.multiply(x, math.multiply(Q, x));//TODO:
-            newV = [x[0], x[1], x[2]];
-            if(math.isNaN(newVerr)) { console.log("error is NaN!");}
+            // x = [x[0][0], x[1][0], x[2][0], 1.0];
 
+            newVerr = math.multiply(x, math.multiply(Q, x));
+            // console.log(typeof(newVerr), newVerr, Number(newVerr))
+            // newVerr = Number(newVerr);
+
+            if(math.isNaN(newVerr)) { console.log("error is NaN!");}
             if(newVerr < cur_min){
                 cur_min = newVerr;
                 edgeInd = randomInd;
-                targetV = [newV[0], newV[1], newV[2]];
+                targetV = [x[0], x[1], x[2]];
                 targeto = t1; //index
                 targetd = t2;
                 targetQ = Q;
