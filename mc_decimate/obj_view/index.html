@@ -52,14 +52,9 @@
     The first three are the textbook libraries.
     The last one is your own javascript code. Make sure to change the name 
     to match your javascript file. -->
-    <script type="text/javascript" src="../Common/utility.js"></script>
-    <script type="text/javascript" src="../Common/initShaders.js"></script>
     <script type="text/javascript" src="../Common/MVnew.js"></script>
-    <script type="text/javascript" src="../Common/uofrGraphics.js"></script>
-    <!-- <script type="text/javascript" src="../Common/j3di.js"></script> -->
-    <script type="text/javascript" src="../Common/translators.js"></script>
-    <!-- <script src="http://benvanik.github.com/WebGL-Inspector/core/embed.js"></script> -->
     <script type="text/javascript" src="a1.js"></script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.js></script>
   </head>
 
   <body>
@@ -71,6 +66,11 @@
   <button id = "ButtonT">Load a hand</button>
   <button id = "ButtonHand">Load a venus</button>
   <button id = "ButtonHorse">Load a horse</button>
+  <button id = "ButtonDecimate">Decimate</button>
+  <label for="name">Valule k:</label>
+    <input type="text" id="kvalue" required size="20" value="50">
+  <label for="name">Valule n:</label>
+    <input type="text" id="nvalue" required size="20" value="1">
   <br>
   
   <p> mesh display options: </p>

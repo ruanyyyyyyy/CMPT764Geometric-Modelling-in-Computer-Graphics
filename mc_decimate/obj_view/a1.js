@@ -50,7 +50,8 @@ var cubeZoom = 1.0;
 var flag = false;
 var flagHand = false;
 var flagHorse = false;
-var flag_mode = 4;
+var flagDec = false;
+var flag_mode = 1;
 var responsetext;
 var vertices = [
     vec4(-0.5, -0.5,  0.5, 1.0),
@@ -62,38 +63,95 @@ var vertices = [
     vec4(0.5,  0.5, -0.5, 1.0),
     vec4(0.5, -0.5, -0.5, 1.0)
 ];
+var kvalue;
+var nvalue;
+
+
+function initShaders( gl, vertexShaderId, fragmentShaderId )
+{
+    var vertShdr;
+    var fragShdr;
+
+    var vertElem = document.getElementById( vertexShaderId );
+    if ( !vertElem ) {
+        alert( "Unable to load vertex shader " + vertexShaderId );
+        return -1;
+    }
+    else {
+        vertShdr = gl.createShader( gl.VERTEX_SHADER );
+        gl.shaderSource( vertShdr, vertElem.textContent.replace(/^\s+|\s+$/g, '' ));
+        gl.compileShader( vertShdr );
+        if ( !gl.getShaderParameter(vertShdr, gl.COMPILE_STATUS) ) {
+            var msg = "Vertex shader failed to compile.  The error log is:"
+        	+ "<pre>" + gl.getShaderInfoLog( vertShdr ) + "</pre>";
+            alert( msg );
+            return -1;
+        }
+    }
+
+    var fragElem = document.getElementById( fragmentShaderId );
+    if ( !fragElem ) {
+        alert( "Unable to load vertex shader " + fragmentShaderId );
+        return -1;
+    }
+    else {
+        fragShdr = gl.createShader( gl.FRAGMENT_SHADER );
+        gl.shaderSource( fragShdr, fragElem.textContent.replace(/^\s+|\s+$/g, '' ) );
+        gl.compileShader( fragShdr );
+        if ( !gl.getShaderParameter(fragShdr, gl.COMPILE_STATUS) ) {
+            var msg = "Fragment shader failed to compile.  The error log is:"
+        	+ "<pre>" + gl.getShaderInfoLog( fragShdr ) + "</pre>";
+            alert( msg );
+            return -1;
+        }
+    }
+
+    var program = gl.createProgram();
+    gl.attachShader( program, vertShdr );
+    gl.attachShader( program, fragShdr );
+    gl.linkProgram( program );
+
+    if ( !gl.getProgramParameter(program, gl.LINK_STATUS) ) {
+        var msg = "Shader program failed to link.  The error log is:"
+            + "<pre>" + gl.getProgramInfoLog( program ) + "</pre>";
+        alert( msg );
+        return -1;
+    }
+
+    return program;
+}
 
 
 function updateSlider_R(slideAmount) {
 	var sliderDiv = document.getElementById("sliderAmount");
     cubeRotation += parseFloat(slideAmount);
-    //console.log(cubeRotation);
+    
 }
 
 function updateSlider_R1(slideAmount) {
 	var sliderDiv = document.getElementById("sliderAmount_Y");
     cubeRotation1 += parseFloat(slideAmount);
-    //console.log(cubeRotation);
+    
 }
 
 
 function updateSlider_T(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_trans");
     cubeTranslation = parseFloat(slideAmount)
-    //console.log(cubeTranslation);	
+    
 }
 
 function updateSlider_T1(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_trans_XZ");
     cubeTranslation1 = parseFloat(slideAmount)
-    //console.log(cubeTranslation);	
+    
 }
 
 
 function updateSlider_Z(slideAmount) {
     var sliderDiv = document.getElementById("sliderAmount_zoom");
     cubeZoom = parseFloat(slideAmount)
-    //console.log(cubeZoom);	
+    	
 }
 
 /**
@@ -105,22 +163,12 @@ function PointsData()
     // 3d coordinates
     var self = this;
     self.coords= []; // a Float32Array; 3 components per vertex (x,y,z)
-    self.edges = [];
+    self.edges = []; // array of incident edges
     self.vertex_normals = vec3(0.0, 0.0, 0.0);
+    self.triangles = [];
+    
 } 
 
-// /**
-//  * An object that contains a set of lines and their colors, suitable for
-//  * rendering using gl.LINES mode.
-//  * @constructor
-//  */
-// function LinesData() {
-//     var self = this;
-//     self.vertices = [];   // a Float32Array; 3 components per vertex (x,y,z)
-//     self.colors = [];   // a Float32Array; 3 components per vertex RGB
-//     self.textures = [];   // a Float32Array; 1 component per vertex
-//     self.material = null; // a Material object
-// }
 function EdgesData() {
     var self = this;
     self.origin = [];
@@ -132,9 +180,6 @@ function EdgesData() {
     self.rightcw = [];
     self.rightccw = [];
 }
-
-
-
 /**
  * A collection of triangles that can all be rendered using gl.TRIANGLES.
  * @constructor
@@ -142,7 +187,7 @@ function EdgesData() {
 function TrianglesData() {
     var self = this;
     self.vertices = [];       // a Float32Array; index of per vertex 
-    self.flat_normals = [];   // a Float32Array; 3 components per vertex <dx,dy,dz>
+    self.flat_normals = [];   // a Float32Array; 3 components per triangle <dx,dy,dz>
     //self.smooth_normals = []; // a Float32Array; 3 components per vertex <dx,dy,dz>
     self.edges = [];
 }
@@ -210,6 +255,7 @@ function doLoadObj(obj, text) {
     vertexArray = [];
     normalArray = [];
     avg_normalArray = [];
+    wireArray = [];
 
     textureArray = [];
     indexArray = [];
@@ -225,9 +271,10 @@ function doLoadObj(obj, text) {
 
     var triangles = []; // array of triangles
     var points = []; //array of points
+    var edges = []; // array of edges [0, 1], [4, 7], .....
 
-    var wevMap = {};
-    var weeMap = {};
+    var wevMap = {}; // we: winged edge, v: vertex
+    var weeMap = {}; // we: winged edge, e: edge
 
     // This is a map which associates a range of indices with a name
     // The name comes from the 'g' tag (of the form "g NAME"). Indices
@@ -259,7 +306,7 @@ function doLoadObj(obj, text) {
             vertex.push(parseFloat(array[2]));
             vertex.push(parseFloat(array[3]));
             p = new PointsData();
-            p.coords = vec3(parseFloat(array[1]), parseFloat(array[2]), parseFloat(array[3]));
+            p.coords = [parseFloat(array[1]), parseFloat(array[2]), parseFloat(array[3])];
             wevMap[points.length] = p;
             points.push(p);
         }
@@ -285,19 +332,21 @@ function doLoadObj(obj, text) {
             p2 = parseInt(array[2])-1;
             p3 = parseInt(array[3])-1;
 
-            triangle.vertices = vec3(p1, p2, p3);
+            triangle.vertices = [p1, p2, p3];
 
             // calc Normal
-            var selectEdge1 = subtract(wevMap[p1].coords, wevMap[p2].coords);
-            var selectEdge2 = subtract(wevMap[p2].coords, wevMap[p3].coords);
-            var face_normal = normalize(cross(selectEdge1, selectEdge2));
-            face_normal = vec3(face_normal);
+            var selectEdge1 = math.subtract(wevMap[p1].coords, wevMap[p2].coords);
+            var selectEdge2 = math.subtract(wevMap[p2].coords, wevMap[p3].coords);
+            var tempN = math.cross(selectEdge1, selectEdge2)
+            var tempL = math.norm(tempN)
+            var face_normal = math.divide(tempN, tempL);
+            
             //add face_normal to each triangle
             triangle.flat_normals = face_normal;
             //add face_normal to each vertex. Then normalize at the end
-            wevMap[p1].vertex_normals = add(wevMap[p1].vertex_normals, face_normal);
-            wevMap[p2].vertex_normals = add(wevMap[p2].vertex_normals, face_normal);
-            wevMap[p3].vertex_normals = add(wevMap[p3].vertex_normals, face_normal);
+            wevMap[p1].vertex_normals = math.add(wevMap[p1].vertex_normals, face_normal);
+            wevMap[p2].vertex_normals = math.add(wevMap[p2].vertex_normals, face_normal);
+            wevMap[p3].vertex_normals = math.add(wevMap[p3].vertex_normals, face_normal);
             
 
             var e1 = [p1, p2];
@@ -315,8 +364,10 @@ function doLoadObj(obj, text) {
                 edge1.leftccw = e2;
                 edge1.leftcw = e3; // when search for matching edge, use e3 and e3_r
                 weeMap[e1] = edge1;
+                edges.push(e1);
 
-                wevMap[p1].edges = edge1;
+                wevMap[p1].edges.push(e1);
+                wevMap[p2].edges.push(e2);
                 triangle.edges = edge1;
             } else {
                 edge1 = weeMap[e1_r];
@@ -335,8 +386,10 @@ function doLoadObj(obj, text) {
                 edge2.leftccw = e3;
                 edge2.leftcw = e1; // when search for matching edge, use e3 and e3_r
                 weeMap[e2] = edge2;
+                edges.push(e2);
 
-                wevMap[p2].edges = edge2;
+                wevMap[p2].edges.push(e2);
+                wevMap[p3].edges.push(e2);
             } else {
                 edge2 = weeMap[e2_r];
                 edge2.rightFace = triangle;
@@ -352,7 +405,10 @@ function doLoadObj(obj, text) {
                 edge3.leftccw = e1;
                 edge3.leftcw = e2; // when search for matching edge, use e3 and e3_r
                 weeMap[e3] = edge3;
-                wevMap[p3].edges = edge3;
+                edges.push(e3);
+
+                wevMap[p3].edges.push(e3);
+                wevMap[p1].edges.push(e3);
             } else {
                 edge3 = weeMap[e3_r];
                 edge3.rightFace = triangle;
@@ -408,22 +464,9 @@ function doLoadObj(obj, text) {
                     textureArray.push(y);
 
                     // do the normals
-                    x = 0;
-                    y = 0;
-                    z = 1;
-                    
                     normalArray.push(face_normal[0]);
                     normalArray.push(face_normal[1]);
                     normalArray.push(face_normal[2]);
-                    //console.log(normalArray)
-                    // if (nor * 3 + 2 < normal.length) {
-                    //     x = normal[nor * 3];
-                    //     y = normal[nor * 3 + 1];
-                    //     z = normal[nor * 3 + 2];
-                    // }
-                    // normalArray.push(x);
-                    // normalArray.push(y);
-                    // normalArray.push(z);
 
                     facemap[array[i]] = index++; // set an index to each vertex
                 //}
@@ -447,14 +490,40 @@ function doLoadObj(obj, text) {
                 tex = vtx;
 
                 var cur_vertex = wevMap[vtx]; //point
-                avg_norm = normalize(cur_vertex.vertex_normals);
+                points[vtx].triangles.push(cur_tri);
+
+                tempL = math.norm(cur_vertex.vertex_normals)
+                avg_norm = math.divide(cur_vertex.vertex_normals, tempL);
                 avg_normalArray.push(avg_norm[0]);
                 avg_normalArray.push(avg_norm[1]);
                 avg_normalArray.push(avg_norm[2]);
 
                 facemap[cur_array[j]] = avgindex++;
+
             //}   
         }
+        wireArray.push(wevMap[cur_array[0]].coords[0]);
+        wireArray.push(wevMap[cur_array[0]].coords[1]);
+        wireArray.push(wevMap[cur_array[0]].coords[2]);
+
+        wireArray.push(wevMap[cur_array[1]].coords[0]);
+        wireArray.push(wevMap[cur_array[1]].coords[1]);
+        wireArray.push(wevMap[cur_array[1]].coords[2]);
+        wireArray.push(wevMap[cur_array[1]].coords[0]);
+        wireArray.push(wevMap[cur_array[1]].coords[1]);
+        wireArray.push(wevMap[cur_array[1]].coords[2]);
+
+        wireArray.push(wevMap[cur_array[2]].coords[0]);
+        wireArray.push(wevMap[cur_array[2]].coords[1]);
+        wireArray.push(wevMap[cur_array[2]].coords[2]);
+        wireArray.push(wevMap[cur_array[2]].coords[0]);
+        wireArray.push(wevMap[cur_array[2]].coords[1]);
+        wireArray.push(wevMap[cur_array[2]].coords[2]);
+        
+        wireArray.push(wevMap[cur_array[0]].coords[0]);
+        wireArray.push(wevMap[cur_array[0]].coords[1]);
+        wireArray.push(wevMap[cur_array[0]].coords[2]);
+
     }
 
 
@@ -475,20 +544,322 @@ function doLoadObj(obj, text) {
     obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.vertexObject);
     obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(vertexArray), obj.ctx.STATIC_DRAW);
 
-    obj.indexArray = indexArray; obj.wireIndexElements = [];
+    obj.wireObject = obj.ctx.createBuffer();
+    obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.wireObject);
+    obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(wireArray), obj.ctx.STATIC_DRAW);
+
+    obj.indexArray = indexArray; 
 
     obj.numIndices = indexArray.length;
     obj.indexObject = obj.ctx.createBuffer();
     obj.ctx.bindBuffer(obj.ctx.ELEMENT_ARRAY_BUFFER, obj.indexObject);
     obj.ctx.bufferData(obj.ctx.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexArray), obj.ctx.STREAM_DRAW);
 
-    obj.groups = groups;
+    var geometry = new ModelArrays();
+    geometry.points = points;
+    geometry.edges = edges;
+    geometry.triangles = triangles;
+    obj.geometry = geometry;
 
+    obj.groups = groups;
     obj.loaded = true;
+
+    var global_q = [];
+    for(var i = 0; i < points.length; i+=1) {
+        cur_p = points[i];
+        // find all incident triangles. cur_p.triangles
+        cur_q = [[0.0, 0.0, 0.0, 0.0],
+                 [0.0, 0.0, 0.0, 0.0],
+                 [0.0, 0.0, 0.0, 0.0],
+                 [0.0, 0.0, 0.0, 0.0]];
+        for(var j = 0; j < cur_p.triangles.length; j += 1) {
+            cur_tri = cur_p.triangles[j];
+            facenormal = cur_tri.flat_normals;
+            var a = facenormal[0];
+            var b = facenormal[1];
+            var c = facenormal[2];
+            var d = -(a*cur_p.coords[0] + b*cur_p.coords[1] + c*cur_p.coords[2]);
+            //calculate error metric matrix
+            var qv = [[a*a, a*b, a*c, a*d],
+                [a*b, b*b, b*c, b*d],
+                [a*c, b*c, c*c, c*d],
+                [a*d, b*d, c*d, d*d]];
+
+            // vert1 = points[cur_tri.vertices[0]].coords;
+            // vert2 = points[cur_tri.vertices[1]].coords;
+            // vert3 = points[cur_tri.vertices[2]].coords;
+            // xyz = [[vert1[0], vert1[1], vert1[2]],
+            //        [vert2[0], vert2[1], vert2[2]],
+            //        [vert3[0], vert3[1], vert3[2]]];
+            // right1 = [1.0, 1.0, 1.0];
+            // abc = math.multiply(math.inv(xyz),right1);
+            // a = abc[0]/math.norm(abc);
+            // b = abc[1]/math.norm(abc);
+            // c = abc[2]/math.norm(abc);
+            // d = -1/math.norm(abc);
+            // var qv = [[a*a, a*b, a*c, a*d],
+            //     [a*b, b*b, b*c, b*d],
+            //     [a*c, b*c, c*c, c*d],
+            //     [a*d, b*d, c*d, d*d]];
+            // console.log(qv);
+
+            cur_q = math.add(cur_q, qv);
+        }
+        // store the total incident triangles' error metric matrix of this point
+        global_q.push(cur_q);
+    }
+    obj.global_q = global_q;
+
 }
 
+// edge collaspe
+// k: multiple choice scheme, select the edge collapse amongst k randomly chosen candidate edges which gives the least quadric error.
+// quadric based error
+// n:  the number of edges to collapse,
+function decimation(obj, k, n) { //FIXME: each time linked to the same point?
+    var wepoints = obj.geometry.points; 
+    //console.log("#points", wepoints.length); // originally, 502
+    var weedges = obj.geometry.edges; // [0,1], [5, 7]....
+    // console.log("#edges", weedges.length)
+    var wetriangles = obj.geometry.triangles; // 1000
+    var global_q = obj.global_q;
+    // var global_q = [];
+    // for(var i = 0; i < wepoints.length; i+=1) {
+    //     cur_p = wepoints[i];
+    //     // find all incident triangles. cur_p.triangles
+    //     cur_q = [[0.0, 0.0, 0.0, 0.0],
+    //              [0.0, 0.0, 0.0, 0.0],
+    //              [0.0, 0.0, 0.0, 0.0],
+    //              [0.0, 0.0, 0.0, 0.0]];
+    //     for(var j = 0; j < cur_p.triangles.length; j += 1) {
+    //         cur_tri = cur_p.triangles[j];
+    //         // TODO:calculate new normal using vertices, find each face normal a,b,c
+    //         // cur_verts = cur_tri.vertices;
+    //         // tedge1 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[1]].coords);
+    //         // tedge2 = math.subtract(wepoints[cur_verts[0]].coords, wepoints[cur_verts[2]].coords);
+    //         // tempN = math.cross(tedge1, tedge2);
+    //         // tempL = math.norm(tempN);
+    //         // facenormal =[tempN[0]/tempL, tempN[1]/tempL, tempN[2]/tempL];
+    //         facenormal = cur_tri.flat_normals;
+            
+    //         var a = facenormal[0];
+    //         var b = facenormal[1];
+    //         var c = facenormal[2];
+    //         // calculate d with cur_p.coords
+    //         var d = -(a*cur_p.coords[0] + b*cur_p.coords[1] + c*cur_p.coords[2]);
+    //         // calculate error metric matrix
+    //         var qv = [[a*a, a*b, a*c, a*d],
+    //             [a*b, b*b, b*c, b*d],
+    //             [a*c, b*c, c*c, c*d],
+    //             [a*d, b*d, c*d, d*d]];
+    //         cur_q = math.add(cur_q, qv);
+    //     }
+    //     // store the total incident triangles' error metric matrix of this point
+    //     global_q.push(cur_q);
+    // }
+    var divider = [[2.0, 2.0, 2.0, 2.0],
+                   [2.0, 2.0, 2.0, 2.0],
+                    [2.0, 2.0, 2.0, 2.0],
+                    [2.0, 2.0, 2.0, 2.0]];
+    for(var repe = 0; repe < n; repe += 1) {
+        // find the minimum value among k candidates
+        var cur_min = Infinity;
+        var edgeInd; // edge to collapse
+        var targetV;
+        var targeto;
+        var targetd; 
+        var targetQ;
+        var chosen=[];
+        var newVerr;
+        for(var i = 0; i < k; i += 1) {
+            randomInd = Math.floor(Math.random()*weedges.length);
+            if(chosen.includes(randomInd)) {
+                i -= 1;
+                continue;
+            } else{
+                chosen.push(randomInd);
+            }
+            
+            t1 = weedges[randomInd][0]; //index
+            t2 = weedges[randomInd][1];
+            Q = math.add(global_q[t1],global_q[t2]);
+            // Q = math.dotDivide(Q, divider);
+            x = math.add(wepoints[t1].coords, wepoints[t2].coords);
+            x = [x[0]/2, x[1]/2, x[2]/2, 1.0];
+            
+            //Inner optimization
+            // var a = [[Q[0][0], Q[0][1], Q[0][2]], 
+            //         [Q[1][0], Q[1][1], Q[1][2]],
+            //         [Q[2][0], Q[2][1], Q[2][2]]];
+            // var b = [-Q[0][3], -Q[1][3], -Q[2][3]];
+            // var x = math.usolve(a, b); // a * x = b
+            // x = [x[0][0], x[1][0], x[2][0], 1.0];
+
+            newVerr = math.multiply(x, math.multiply(Q, x));
+            // console.log(typeof(newVerr), newVerr, Number(newVerr))
+            // newVerr = Number(newVerr);
+
+            if(math.isNaN(newVerr)) { console.log("error is NaN!");}
+            if(newVerr < cur_min){
+                cur_min = newVerr;
+                edgeInd = randomInd;
+                targetV = [x[0], x[1], x[2]];
+                targeto = t1; //index
+                targetd = t2;
+                targetQ = Q;
+            }
+        }
+        // TODO: sometime cannot choose targeto
+       
+     //TODO: check if the update is correct
+        new_V = new PointsData();
+        new_V.coords = targetV;
+        wepoints.push(new_V);
+        newInd = wepoints.length-1;
+        global_q.push(targetQ);
+        wepoints[newInd].triangles = [];
+        for(var i = 0; i < wepoints[targeto].triangles.length; i+=1) {
+            for(var j = 0; j < 3; j+=1) {
+                if(wepoints[targeto].triangles[i].vertices[j] == targeto) {
+                    wepoints[targeto].triangles[i].vertices[j] = newInd;
+                }
+            }
+            
+            tempTri = wepoints[targeto].triangles[i];
+            tempVerts = tempTri.vertices;
+            if(tempVerts[0]==tempVerts[1] || tempVerts[0]==tempVerts[2] || tempVerts[1]==tempVerts[2]){
+                continue;
+            } else {
+                wepoints[newInd].triangles.push(wepoints[targeto].triangles[i]);
+            }
+        }
+        for(var i = 0; i < wepoints[targetd].triangles.length; i+=1) {
+            for(var j = 0; j < 3; j+=1) {
+                if(wepoints[targetd].triangles[i].vertices[j] == targetd) {
+                    wepoints[targetd].triangles[i].vertices[j] = newInd;
+                }
+            }
+            tempTri = wepoints[targetd].triangles[i];
+            tempVerts = tempTri.vertices;
+            if(tempVerts[0]==tempVerts[1] || tempVerts[0]==tempVerts[2] || tempVerts[1]==tempVerts[2]){
+                continue;
+            } else {
+                wepoints[newInd].triangles.push(wepoints[targetd].triangles[i]);
+            }
+        }
+        //check if two points are the same in one triangle, if not, add it to newInd triangles.
+        
+        new_wetriangles =  []
+        for (var i=0; i < wetriangles.length; i+=1) {
+            tempTri = wetriangles[i];
+            tempVerts = tempTri.vertices;
+            if(tempVerts[0]==tempVerts[1] || tempVerts[0]==tempVerts[2] || tempVerts[1]==tempVerts[2]){
+                continue;
+            } else {
+                new_wetriangles.push(tempTri);
+            }
+        }
+        // console.log("after", new_wetriangles.length)
+        wetriangles = new_wetriangles;
+
+        // remove edges, remove faces from point.triangles
+        weedges.splice(edgeInd, 1);
+        for(var i = 0; i < weedges.length; i += 1) {
+            if(weedges[i][0]==targeto) {
+                weedges[i][0] = newInd;
+            }
+            if(weedges[i][1]==targeto) {
+                weedges[i][1] = newInd;
+            }
+            if(weedges[i][0]==targetd) {
+                weedges[i][0] = newInd;
+            }
+            if(weedges[i][1]==targetd) {
+                weedges[i][1] = newInd;
+            }
+        }
+        
+    }
+    obj.geometry.triangles = wetriangles;
+    // calculate coords of new vertices
+    // change connected edge destination to this new coords
+    // repeat n times
+    // build new vertexArray, normalArray, avgNormalarray
+    // return new obj
+    vertexArray = [];
+    normalArray = [];
+    wireArray = [];
+    
+    for(var i = 0; i < wetriangles.length; i += 1) {
+        verts = wetriangles[i].vertices;
+        normals = wetriangles[i].flat_normals; //TODO: normal changed
+        for (var j = 0; j < 3; j += 1) {
+            var x = wepoints[verts[j]].coords[0];
+            var y = wepoints[verts[j]].coords[1];
+            var z = wepoints[verts[j]].coords[2];
+            vertexArray.push(x);
+            vertexArray.push(y);
+            vertexArray.push(z);
+            
+            normalArray.push(normals[0]);
+            normalArray.push(normals[1]);
+            normalArray.push(normals[2]);
+
+        }
+        wireArray.push(wepoints[verts[0]].coords[0]);
+        wireArray.push(wepoints[verts[0]].coords[1]);
+        wireArray.push(wepoints[verts[0]].coords[2]);
+
+        wireArray.push(wepoints[verts[1]].coords[0]);
+        wireArray.push(wepoints[verts[1]].coords[1]);
+        wireArray.push(wepoints[verts[1]].coords[2]);
+        wireArray.push(wepoints[verts[1]].coords[0]);
+        wireArray.push(wepoints[verts[1]].coords[1]);
+        wireArray.push(wepoints[verts[1]].coords[2]);
+
+        wireArray.push(wepoints[verts[2]].coords[0]);
+        wireArray.push(wepoints[verts[2]].coords[1]);
+        wireArray.push(wepoints[verts[2]].coords[2]);
+        wireArray.push(wepoints[verts[2]].coords[0]);
+        wireArray.push(wepoints[verts[2]].coords[1]);
+        wireArray.push(wepoints[verts[2]].coords[2]);
+        
+        wireArray.push(wepoints[verts[0]].coords[0]);
+        wireArray.push(wepoints[verts[0]].coords[1]);
+        wireArray.push(wepoints[verts[0]].coords[2]);
+    }
+    
+    obj.vertexObject = obj.ctx.createBuffer();
+    obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.vertexObject);
+    obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(vertexArray), obj.ctx.STATIC_DRAW);
+
+    obj.normalObject = obj.ctx.createBuffer();
+    obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.normalObject);
+    obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(normalArray), obj.ctx.STATIC_DRAW);
+
+    obj.wireObject = obj.ctx.createBuffer();
+    obj.ctx.bindBuffer(obj.ctx.ARRAY_BUFFER, obj.wireObject);
+    obj.ctx.bufferData(obj.ctx.ARRAY_BUFFER, new Float32Array(wireArray), obj.ctx.STATIC_DRAW);
+
+    return obj
+
+}
+
+
 //A simple function to download files.
-function downloadFile(filename, text) {
+function downloadFile(filename, obj) {
+    //TODO: get text from obj
+    var text;
+    for(var i = 0; i < obj.geometry.points.length; i += 1) {
+        tempvtx = obj.geometry.points[i].coords; 
+        text += "v" + " " + String(tempvtx[0]) + " " + String(tempvtx[1]) + " " + String(tempvtx[2]) + "\n";
+    }
+    for(var i = 0; i < obj.geometry.triangles.length; i += 1) {
+        tempvtx = obj.geometry.triangles[i].vertices; 
+        text += "f" + " " + String(tempvtx[0]) + " " + String(tempvtx[1]) + " " + String(tempvtx[2]) + "\n";
+    }
+
+
     var element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
     element.setAttribute('download', filename);
@@ -507,39 +878,11 @@ function downloadFileFunction(){
     var file = document.getElementById("filename").value;
     
     // Start file download.
-    downloadFile(file, responsetext);
-}
-function quad(a, b, c, d) {
-
-    var t1 = subtract(vertices[b], vertices[a]);
-    var t2 = subtract(vertices[c], vertices[b]);
-    var normal = cross(t1, t2);
-    normal = vec3(normal);
-
-    points.push(vertices[a]);
-    normals.push(normal);
-    points.push(vertices[b]);
-    normals.push(normal);
-    points.push(vertices[c]);
-    normals.push(normal);
-    points.push(vertices[a]);
-    normals.push(normal);
-    points.push(vertices[c]);
-    normals.push(normal);
-    points.push(vertices[d]);
-    normals.push(normal);
+    if(flag) downloadFile(file, obj1);
+    if(flagHand) downloadFile(file, obj2);
+    if(flagHorse) downloadFile(file, obj3);
 }
 
-
-function colorCube()
-{
-   quad(1, 0, 3, 2);
-   quad(2, 3, 7, 6);
-   quad(3, 0, 4, 7);
-   quad(6, 5, 1, 2);
-   quad(4, 5, 6, 7);
-   quad(5, 4, 0, 1);
-}
 
 //----------------------------------------------------------------------------
 // Initialization Event Function
@@ -565,75 +908,39 @@ window.onload = function init() {
 	program = initShaders(gl, "vertex-shader", "fragment-shader");
 	gl.useProgram(program);
 
-	// Set up data to drw
-	mesh.tris = {};
-	mesh.tris.Start = points.length;
-	colorCube();
-	mesh.tris.Vertices = points.length - mesh.tris.Start;
-
-	mesh.wires= {};
-	mesh.wires.Start = points.length;
-	points = points.concat(TrianglesToWireframe(points.slice(mesh.tris.Start, mesh.tris.Start + mesh.tris.Vertices)));
-	mesh.wires.Vertices = points.length - mesh.wires.Start;
-
-	//Construct and initialize colours array with a throw away value
-	colors = Array(points.length).fill(vec4());
-
-	// Load the data into GPU data buffers and
-	// Associate shader attributes with corresponding data buffers
-	//***Vertices***
-	vertexBuffer = gl.createBuffer();
-	gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-	gl.bufferData( gl.ARRAY_BUFFER,  flatten(points), gl.STATIC_DRAW );
 	program.vPosition = gl.getAttribLocation(program, "vPosition");
-	gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    gl.enableVertexAttribArray( program.vPosition );
-
-	//***Colors***
-	colorBuffer = gl.createBuffer();
-	gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-	gl.bufferData( gl.ARRAY_BUFFER,  flatten(colors), gl.STATIC_DRAW );
 	program.vColor = gl.getAttribLocation(program, "vColor");
-	gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-	gl.enableVertexAttribArray( program.vColor );
 
 	// Get addresses of shader uniforms
 	program.p = gl.getUniformLocation(program, "p");
     program.mv = gl.getUniformLocation(program, "mv");
 
     //cube
-    obj1 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/goodhand.obj');
+    obj1 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a1/goodhand.obj');
     obj2 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/venus.obj');
     // //horse simple
-    obj3 = loadObj(gl, 'https://gist.githubusercontent.com/ruanyyyyyyy/09d432633575e2629dd19eb9411c89b7/raw/ffe71437d33d6c439568ce523303d3defecbeb29/horse_s.obj');
+    obj3 = loadObj(gl, 'https://www.cs.sfu.ca/~haoz/teaching/cmpt464/assign/a2/OBJ_files/horse.obj');
     
     
     document.getElementById("ButtonT").onclick = function(){flag = true; flagHand=false; flagHorse=false;};
     document.getElementById("ButtonHand").onclick = function(){flagHand = true; flag = false; flagHorse=false;};
     document.getElementById("ButtonHorse").onclick = function(){flagHorse = true; flag = false; flagHand=false};
+    document.getElementById("ButtonDecimate").onclick = function(){flagDec = true;};
+    kvalue = parseInt(document.getElementById("kvalue").value);
+    nvalue = parseInt(document.getElementById("nvalue").value);
 
     document.getElementById("ButtonFlat").onclick = function(){flag_mode = 1;};
     document.getElementById("ButtonSmooth").onclick = function(){flag_mode = 2;};
     document.getElementById("ButtonWire").onclick = function(){flag_mode = 3;};
     document.getElementById("ButtonBoth").onclick = function(){flag_mode = 4;};
 
-	render();
+    render();
+
 };
 
 
 
-//----------------------------------------------------------------------------
-// Calculates y values and colours for vertices based on x and z values (indices)
-//----------------------------------------------------------------------------
-function updateHeightsAndColors(time)
-{
-	for (var i = 0; i < points.length; i++)
-	{
-		var h = Math.sin((points[i][0]+time) * Math.PI*2)/15 + Math.sin(points[i][2] * Math.PI*3)/20;
-		points[i][1] = h;
-		colors[i] = vec4(h*10-0.5,1-h*10-0.5,1,1);
-	}
-}
+
 
 
 function bindBuffersToShader(obj) {
@@ -665,7 +972,7 @@ function bindBuffersToShader(obj) {
 	
 	//j3di.js stores OBJs as vertex arrays with an element array lookup buffer
 	//the buffer describes TRIANGLES with UNSIGNED_SHORT
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexObject);
+	// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexObject);
 }
 
 function bindSmoothBuffersToShader(obj) {
@@ -701,35 +1008,20 @@ function bindSmoothBuffersToShader(obj) {
 }
 
 
-//----------------------------------------------------------------------------
-// Creates a wireframe for an OBJ for modified j3d9.js 
-// and binds necessary buffers to draw it
-//
-// To use this function, first add the element index array to the object
-// that j3di.js builds. Change j3di.js:507 or a nearby blank line to this:
-// obj.indexArray = indexArray; obj.wireIndexElements = [];
-//----------------------------------------------------------------------------
+
+
+
 function bindWireBuffersToShader(obj)
 {
 	//Bind vertexObject - the vertex buffer for the OBJ - to position attribute
-	gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexObject);
+	gl.bindBuffer(gl.ARRAY_BUFFER, obj.wireObject);
 	gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
 	gl.enableVertexAttribArray(program.vPosition);
   
-    //gl.disableVertexAttribArray(program.vNormal);
-    //gl.vertexAttrib4f(program.vNormal, 0.0, 0.0, 0.0, 1.0);
 
 	gl.disableVertexAttribArray(program.vColor);
 	gl.vertexAttrib4f(program.vColor, 0.0, 0.0, 0.0, 1.0); // specify colour as needed
   
-	if (obj.wireIndexElements.length == 0)
-	{
-		obj.wireIndexElements = TrianglesToWireframe(obj.indexArray);
-		obj.wireIndexObject = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.wireIndexObject);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, Uint16Array.from(obj.wireIndexElements), gl.STREAM_DRAW);
-	}
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.wireIndexObject);	
 }
 
 
@@ -780,25 +1072,33 @@ function render() {
                 case 1: // flat
                   //Draw solid OBJ
                   bindBuffersToShader(obj1);
-                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj1.geometry.triangles.length*3);
                   break;
                 case 2: //smooth
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj1);
-                  gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj1.geometry.triangles.length*3);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj1);
-                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj1.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES,obj1.geometry.triangles.length*3, obj1.geometry.triangles.length*3*2-obj1.geometry.triangles.length*3-1);
                     break;
                 case 4:
                     bindBuffersToShader(obj1);
-                    gl.drawElements(gl.TRIANGLES, obj1.numIndices, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj1.geometry.triangles.length*3);
                     bindWireBuffersToShader(obj1);
-                    gl.drawElements(gl.LINES, obj1.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj1.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES, obj1.geometry.triangles.length*3, obj1.geometry.triangles.length*3*2-obj1.geometry.triangles.length*3-1);
                     break;
               }
+            if(flagDec) {
+                kvalue = parseInt(document.getElementById("kvalue").value);
+                nvalue = parseInt(document.getElementById("nvalue").value);
+                obj1 = decimation(obj1, kvalue, nvalue);
+                flagDec = false;
+            }
         }
     }
 
@@ -822,25 +1122,31 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj2);
-                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.geometry.triangles.length*3);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj2);
-                  gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, obj2.geometry.triangles.length*3);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj2);
-                    gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj2.geometry.triangles.length*3*2);
                     break;
                 case 4:
                     bindBuffersToShader(obj2);
-                    gl.drawElements(gl.TRIANGLES, obj2.numIndices, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.TRIANGLES, 0, obj2.geometry.triangles.length*3);
                     bindWireBuffersToShader(obj2);
-                    gl.drawElements(gl.LINES, obj2.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj2.geometry.triangles.length*3*2);
                     break;
-              }
+            }
+            if(flagDec) {
+                kvalue = parseInt(document.getElementById("kvalue").value);
+                nvalue = parseInt(document.getElementById("nvalue").value);
+                obj2 = decimation(obj2, kvalue, nvalue);
+                flagDec = false;
+            }
         }
     }
 
@@ -861,71 +1167,38 @@ function render() {
                 case 1:
                   //Draw solid OBJ
                   bindBuffersToShader(obj3);
-                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.geometry.triangles.length*3/2));
+                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.geometry.triangles.length*3/2), obj3.geometry.triangles.length*3-Math.floor(obj3.geometry.triangles.length*3/2)-1);
                   break;
                 case 2:
                   //Draw solid OBJ
                   bindSmoothBuffersToShader(obj3);
-                  gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                  gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.geometry.triangles.length*3/2));
+                  gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.geometry.triangles.length*3/2), obj3.geometry.triangles.length*3-Math.floor(obj3.geometry.triangles.length*3/2)-1);
                   break;
                 case 3:
                     //Draw wire OBJ
                     bindWireBuffersToShader(obj3);
-                    gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj3.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES, obj3.geometry.triangles.length*3, obj3.geometry.triangles.length*3*2-obj3.geometry.triangles.length*3-1);
                     break;
                 case 4:
                     bindBuffersToShader(obj3);
-                    gl.drawElements(gl.TRIANGLES, obj3.numIndices, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.TRIANGLES, 0, Math.floor(obj3.geometry.triangles.length*3/2));
+                    gl.drawArrays(gl.TRIANGLES, Math.floor(obj3.geometry.triangles.length*3/2), obj3.geometry.triangles.length*3-Math.floor(obj3.geometry.triangles.length*3/2)-1);
                     bindWireBuffersToShader(obj3);
-                    gl.drawElements(gl.LINES, obj3.wireIndexElements.length, gl.UNSIGNED_SHORT, 0);
+                    gl.drawArrays(gl.LINES, 0, obj3.geometry.triangles.length*3);
+                    gl.drawArrays(gl.LINES, obj3.geometry.triangles.length*3, obj3.geometry.triangles.length*3*2-obj3.geometry.triangles.length*3-1);
                     break;
               }
+            if(flagDec) {
+                kvalue = parseInt(document.getElementById("kvalue").value);
+                nvalue = parseInt(document.getElementById("nvalue").value);
+                obj2 = decimation(obj3, kvalue, nvalue);
+                flagDec = false;
+            }
         }
     }
-    
-    // if (!flag && !flagHand && !flagHorse) {
-    //     //Rebind buffers for procedural mesh
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-    //     gl.vertexAttribPointer( program.vPosition, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    //     gl.enableVertexAttribArray( program.vPosition );
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-    //     gl.vertexAttribPointer( program.vColor, 4, gl.FLOAT, gl.FALSE, 0, 0 );
-    //     gl.enableVertexAttribArray( program.vColor );
-
-        
-    //     mv = mult(mv, rotate(roty,vec3(0,1,0)));
-    //     roty+= 0.5;
-    //     mv = mult(mv, translate(-3, 0, -3));
-    //     mv = mult(mv, scale(6, 6, 6));
-
-
-    //     //Animate the mesh and copy the updated data to gl buffers
-    //     updateHeightsAndColors(time);
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, vertexBuffer );
-    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(points) );
-    //     gl.bindBuffer( gl.ARRAY_BUFFER, colorBuffer );
-    //     gl.bufferSubData( gl.ARRAY_BUFFER, 0, flatten(colors) );
-        
-    //     //Or update time in the shader so it can animate the vertex stream
-    //     gl.uniform1f(program.time, time);
-        
-    //     time += 0.01;
-
-    //     gl.uniformMatrix4fv(program.mv, gl.FALSE, flatten(mv));
-    //     gl.drawArrays(gl.TRIANGLES, mesh.tris.Start, mesh.tris.Vertices);
-
-    //     //Wires and points will have solid colour, like a uniform	
-    //     //Disabling a vertex attribute array allows it to take on a fixed value, a bit like a uniform
-    //     gl.disableVertexAttribArray( program.vColor );
-
-    //     //Set a disabled attribute like this
-    //     gl.vertexAttrib4f( program.vColor, 0.0, 0.0, 0.0, 1.0 );
-
-    //     gl.drawArrays(gl.LINES, mesh.wires.Start, mesh.wires.Vertices);
-
-    //     //Renable the vertex attrib array to permit per-vertex colour array to work again
-    //     gl.enableVertexAttribArray( program.vColor );
-    // }
 
 	
 	requestAnimationFrame(render);
