@@ -1,9 +1,0 @@
-Which feature(s) listed above were not implemented: the bonus part was not implemented. Except that, all were implemented.
-
-To check this assignment, 
-1. click load a hand/venus/horse
-2. choose the mesh display option
-3. use the slider to rotate/translate/zoom
-4. click the download button to download a file
-
-And from the screenshot in this folder, you could see the Winged edge data structure. I use console.log to print it and take a screenshot.
