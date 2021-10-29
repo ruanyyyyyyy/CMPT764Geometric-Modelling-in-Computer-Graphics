@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Assignment1</title>
+    <link rel="stylesheet" href="webgl.css" type="text/css">
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
+      integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
+      crossorigin="anonymous" defer>
+    </script> -->
+
+    <!-- This in-line script is a vertex shader resource
+			Shaders can be linked from an external file as well. -->
+<script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+                
+                attribute vec4 vColor;
+    
+                varying vec4 color;
+    
+                uniform mat4 p,mv;
+                void main() 
+                {              
+                      vec4 pos = vPosition;
+                      gl_Position = p*mv*pos;
+                      gl_PointSize = 5.0;
+                      color = vColor;
+                }
+    </script>
+    
+    <!-- This in-line script is a fragment shader resource.
+                Shaders can be linked from an external file as well. -->
+    <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    
+            varying vec4 color;
+    
+            void main() 
+            { 
+                    if(gl_FrontFacing == true)
+                    {
+                      gl_FragColor = color;
+                    }
+                    else
+                    {
+                      gl_FragColor = vec4(0,1,0,1);
+                    }
+            }
+    </script>
+
+<!-- These are external javascript files. 
+    The first three are the textbook libraries.
+    The last one is your own javascript code. Make sure to change the name 
+    to match your javascript file. -->
+    <script type="text/javascript" src="../Common/MVnew.js"></script>
+    <script type="text/javascript" src="a1.js"></script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.js></script>
+  </head>
+
+  <body>
+    <canvas id="gl-canvas" width="512" height="512"></canvas>
+	
+	<p> Please open the console to see the file output! </p>
+	<!-- <button type="button" onclick="loadFileFunction()">Load a file!</button>
+  <button type="button" onclick="showAnErrorFunction()">Show an error!</button> -->
+  <button id = "ButtonT">Load a hand</button>
+  <button id = "ButtonHand">Load a venus</button>
+  <button id = "ButtonHorse">Load a horse</button>
+  <button id = "ButtonDecimate">Decimate</button>
+  <label for="name">Valule k:</label>
+    <input type="text" id="kvalue" required size="20" value="50">
+  <label for="name">Valule n:</label>
+    <input type="text" id="nvalue" required size="20" value="1">
+  <br>
+  
+  <p> mesh display options: </p>
+  <button id = "ButtonFlat">flat shaded</button>
+  <button id = "ButtonSmooth" >smoothly shaded</button>
+  <button id = "ButtonWire" >wireframe</button>
+  <button id = "ButtonBoth" >shaded with mesh edges displayed</button>
+  
+	
+	<br>
+	<br>
+	
+	<label for="name">File name:</label>
+    <input type="text" id="filename" required size="20" value="hello_world.obj">
+	<button type="button" onclick="downloadFileFunction()">Download a file with this name!</button>
+	
+	<br>
+	<br>
+	
+    <p> Slider example with rotation on both Z and X axis: </p>
+    <input id="sliderAmount" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider_R(this.value)">
+    <p> Translation on Y axis: </p>
+    <input id="sliderAmount_trans" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider_T(this.value)">
+    <p> Zooming: </p>
+    <input id="sliderAmount_zoom" type="range" min="0.01" max="5" step="0.01" value="0" oninput="updateSlider_Z(this.value)">
+
+    <p> Slider example with rotation on Y axis: </p>
+    <input id="sliderAmount_Y" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider_R1(this.value)">
+    <p> Translation on both Z and X axis: </p>
+    <input id="sliderAmount_trans_XZ" type="range" min="-10" max="10" step="0.1" value="0" oninput="updateSlider_T1(this.value)">
+    
+    
+  </body>
+</html>
